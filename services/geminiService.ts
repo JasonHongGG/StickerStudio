@@ -45,37 +45,35 @@ export const generateExpression = async (
     try {
         const client = getClient();
         
-        // Construct a smart prompt with stricter rules for Text vs Action
+        // Optimize the prompt: Prioritize Image Quality > Action > Text Rules
+        const themeContext = theme 
+            ? `Context: The character is in a scenario related to "${theme}" (Costumes/Props).` 
+            : "";
+
         const finalUserPrompt = `
-**Reference Image**: Provided is the character design.
+**TASK**: Generate a high-quality LINE sticker based on the **Reference Image**.
 
-**Sticker Request Details**:
-1.  **Art Style**: ${styleSuffix || "Keep original style"}. 
-    *Instruction*: Apply this art style **STRONGLY** and vividly. Re-render the character to match this aesthetic perfectly.
-    
-2.  **Theme (Optional)**: ${theme ? `Theme context: ${theme} (Add relevant costumes/props).` : "None."}
+**1. CHARACTER & STYLE (Highest Priority)**:
+*   **Reference**: You MUST maintain the character's key features (species, eye shape, color palette, markings) from the Reference Image. Do not create a random character.
+*   **Style**: Re-render the character ${styleSuffix || "keeping the original art style"}.
+*   **Quality**: Ensure clean lines, vibrant colors, and professional sticker aesthetics.
 
-3.  **User Input**: "${expressionInput}"
+**2. CONTENT**:
+*   **Action/Emotion**: The character is acting out: "${expressionInput}".
+*   ${themeContext}
 
-4.  **Critical Rules for Content Generation**:
-    *   **IF Input contains Chinese characters (e.g., "璦妮~~", "早安") or is a Quote**:
-        - **TEXT CONTENT**: Write "${expressionInput}" verbatim.
-        - **COMPOSITION & LAYOUT (CRITICAL)**:
-            - **NO OVERLAP**: Text and Character must not fight for space. Place text in the **Negative Space** (Top, Bottom, or Side).
-            - **FACE SAFETY**: Text must **NEVER** cover the character's face or eyes.
-            - **SIZE**: Text must be **HUGE, BOLD, and COMPACT**. It should occupy about 20-30% of the image area to ensure readability on small mobile screens.
-            - **INTEGRATION**: Use a font style that matches the art (e.g., Pop Bubble, Bold Stroke, or Calligraphy). The text position should balance the character's pose.
-        - **LEGIBILITY**: Ensure Chinese characters have **CORRECT STROKE ORDER**. No garbled text.
-        - **ACTION**: The character should perform an action that matches the meaning of the text.
-    
-    *   **IF Input is purely an Action/Emotion description (e.g., "Running", "Happy")**:
-        - **DO NOT ADD ANY TEXT**. Absolutely NO text overlays.
-        - JUST DRAW the character performing the action.
+**3. TEXT RULES (Strict)**:
+*   **General Rule**: Do NOT write the Theme name, Style name, or Emotion name on the image.
+*   **Dialogue Logic**: 
+    - IF the User Input ("${expressionInput}") looks like a spoken phrase (e.g., "Hello", "Sorry", Chinese text like "你好"):
+      -> **Add the text** nicely in the negative space (bubble or stylized text). 
+      -> Do NOT cover the face.
+    - ELSE (if it describes an action like "Running", "Happy"):
+      -> **NO TEXT**. Draw the illustration only.
 
-5.  **Output Requirements**:
-    - High-quality sticker art.
-    - **Background MUST be Solid Green #00FF00**.
-    - **Composition**: Ensure the character fits well within the frame without being cut off.
+**4. FORMAT**:
+*   **Background**: Solid Green #00FF00.
+*   **Composition**: Full body or upper body, centered, fit within frame.
         `.trim();
 
         const response = await client.models.generateContent({
