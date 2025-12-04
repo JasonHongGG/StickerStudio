@@ -30,7 +30,8 @@ export const generateExpression = async (
     imageBase64: string,
     expressionInput: string,
     styleSuffix: string,
-    theme: string
+    theme: string,
+    modelName: string = 'gemini-2.5-flash-image'
 ): Promise<string> => {
     const client = getClient();
     
@@ -64,7 +65,7 @@ export const generateExpression = async (
 
     try {
         const response = await client.models.generateContent({
-            model: 'gemini-2.5-flash-image',
+            model: modelName,
             contents: {
                 parts: [
                     {

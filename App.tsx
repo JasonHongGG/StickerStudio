@@ -2,12 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { UploadSection } from './components/UploadSection';
 import { ConfigSection } from './components/ConfigSection';
 import { ResultSection } from './components/ResultSection';
+import { SettingsModal } from './components/SettingsModal';
 import { GeneratedImage, StickerStyle, StickerPackInfo } from './types';
 import { EXPRESSIONS, STYLES } from './constants';
 import { fileToBase64, generateExpression } from './services/geminiService';
 import { removeBackground } from './services/imageProcessingService';
 import { saveImageRecord, getAllImages, deleteImageRecord, updateBatchNameInDB } from './services/storageService';
-import { Sparkles, StopCircle, Palette } from 'lucide-react';
+import { Sparkles, StopCircle, Palette, Settings } from 'lucide-react';
 
 const App: React.FC = () => {
   // --- State ---
@@ -22,6 +23,10 @@ const App: React.FC = () => {
   // Pack Management State
   const [targetPackId, setTargetPackId] = useState<string>('new');
   const [newPackName, setNewPackName] = useState<string>('');
+
+  // App Settings State
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [geminiModel, setGeminiModel] = useState<string>('gemini-2.5-flash-image');
 
   // Generation State
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
@@ -42,6 +47,14 @@ const App: React.FC = () => {
         }
     };
     loadImages();
+  }, []);
+
+  // Load Settings from LocalStorage
+  useEffect(() => {
+    const savedModel = localStorage.getItem('gemini_model');
+    if (savedModel) {
+      setGeminiModel(savedModel);
+    }
   }, []);
 
   // Compute existing packs from generatedImages
@@ -78,6 +91,11 @@ const App: React.FC = () => {
     } else {
         setSelectedExpressions([]);
     }
+  };
+
+  const handleSaveSettings = (model: string) => {
+    setGeminiModel(model);
+    localStorage.setItem('gemini_model', model);
   };
 
   // --- Core Generation Logic ---
@@ -151,8 +169,8 @@ const App: React.FC = () => {
           promptText = item.expressionName; 
         }
 
-        // 1. Generate via Gemini
-        const generatedBase64 = await generateExpression(base64Image, promptText, style.promptSuffix, theme);
+        // 1. Generate via Gemini (Pass Model)
+        const generatedBase64 = await generateExpression(base64Image, promptText, style.promptSuffix, theme, geminiModel);
         
         if (signal.aborted) break;
 
@@ -266,7 +284,8 @@ const App: React.FC = () => {
         const exp = EXPRESSIONS.find(e => e.name === targetImage.expressionName);
         promptText = exp ? exp.enName : targetImage.expressionName;
 
-        const generatedBase64 = await generateExpression(base64, promptText, style.promptSuffix, themeText);
+        // Use current model
+        const generatedBase64 = await generateExpression(base64, promptText, style.promptSuffix, themeText, geminiModel);
         const noBgDataUrl = await removeBackground(`data:image/png;base64,${generatedBase64}`);
         const res = await fetch(noBgDataUrl);
         const blob = await res.blob();
@@ -336,13 +355,31 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
       
+      {/* Settings Modal */}
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)}
+        currentModel={geminiModel}
+        onSave={handleSaveSettings}
+      />
+
       {/* 1. Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-[1800px] mx-auto px-4 lg:px-6 h-16 flex items-center gap-3">
-           <div className="bg-black text-white p-1.5 rounded-lg shadow-sm">
-              <Palette size={20} />
+        <div className="max-w-[1800px] mx-auto px-4 lg:px-6 h-16 flex items-center justify-between">
+           <div className="flex items-center gap-3">
+              <div className="bg-black text-white p-1.5 rounded-lg shadow-sm">
+                  <Palette size={20} />
+              </div>
+              <h1 className="text-xl font-bold text-gray-900 tracking-tight">AI Sticker Studio</h1>
            </div>
-           <h1 className="text-xl font-bold text-gray-900 tracking-tight">AI Sticker Studio</h1>
+           
+           <button 
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-2 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded-full transition-all"
+              title="設定"
+           >
+              <Settings size={20} />
+           </button>
         </div>
       </header>
 
