@@ -438,7 +438,7 @@ const App: React.FC = () => {
                         <button 
                                 onClick={handleStartGeneration}
                                 disabled={!sourceImage || (selectedExpressions.length === 0 && customExpressionText.trim() === '')}
-                                className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold py-3.5 rounded-xl hover:from-amber-600 hover:to-orange-600 transition-all disabled:from-gray-300 disabled:to-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:shadow-amber-200/50 transform active:scale-[0.99]"
+                                className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold py-3.5 rounded-xl hover:from-amber-600 hover:to-orange-600 transition-all disabled:from-gray-300 disabled:to-gray-300 disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:shadow-amber-200/50 transform active:scale-[0.99]"
                             >
                                 <Sparkles size={20} />
                                 {targetPackId === 'new' ? '建立貼圖包並生成' : '加入貼圖包並生成'}

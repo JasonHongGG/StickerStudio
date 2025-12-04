@@ -332,7 +332,6 @@ export const ResultSection: React.FC<ResultSectionProps> = ({
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h2 className="text-lg font-bold flex items-center gap-2 mb-4">
                 <span className="text-gray-800">貼圖歷史紀錄 (分組)</span>
-                <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs font-mono">{results.length} 張</span>
             </h2>
              <div className="bg-yellow-50 border border-yellow-100 p-3 rounded-lg flex items-center gap-2 text-sm text-yellow-800">
                 <Database size={16} />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Server, ShieldCheck } from 'lucide-react';
+import { X, Save, Server, ShieldCheck, Key, Eye, EyeOff, Trash2 } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -10,11 +10,40 @@ interface SettingsModalProps {
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, currentModel, onSave }) => {
   const [model, setModel] = useState(currentModel);
+  const [apiKey, setApiKey] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  
+  // Check if system env key exists (safely)
+  const hasSystemKey = typeof process !== 'undefined' && process.env && process.env.API_KEY;
 
   // Sync state when opening
   useEffect(() => {
-    if (isOpen) setModel(currentModel);
+    if (isOpen) {
+        setModel(currentModel);
+        // Load key from local storage
+        const savedKey = localStorage.getItem('gemini_api_key') || '';
+        setApiKey(savedKey);
+    }
   }, [isOpen, currentModel]);
+
+  const handleSaveAll = () => {
+    // 1. Save Model (via parent callback)
+    onSave(model);
+
+    // 2. Save API Key (locally)
+    if (apiKey.trim()) {
+        localStorage.setItem('gemini_api_key', apiKey.trim());
+    } else {
+        localStorage.removeItem('gemini_api_key');
+    }
+
+    onClose();
+  };
+
+  const handleClearKey = () => {
+    setApiKey('');
+    localStorage.removeItem('gemini_api_key');
+  };
 
   if (!isOpen) return null;
 
@@ -31,7 +60,60 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, c
           </button>
         </div>
         
-        <div className="p-6 space-y-6 bg-white">
+        <div className="p-6 space-y-6 bg-white max-h-[70vh] overflow-y-auto custom-scrollbar">
+          
+          {/* API Key Section */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                <Key size={16} className="text-amber-500" />
+                Gemini API Key
+            </label>
+            
+            <div className="relative group">
+                <input 
+                    type={showKey ? "text" : "password"}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder={hasSystemKey ? "預設使用系統環境變數 (可在此覆寫)" : "請輸入您的 Gemini API Key"}
+                    className="w-full border border-gray-300 rounded-xl p-3 pr-24 text-sm focus:border-amber-400 focus:ring-4 focus:ring-amber-100 outline-none bg-white transition-all font-mono placeholder-gray-400"
+                />
+                
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                    {apiKey && (
+                        <button 
+                            onClick={handleClearKey}
+                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="清除 Key"
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                    )}
+                    <button 
+                        onClick={() => setShowKey(!showKey)}
+                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                        {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                </div>
+            </div>
+
+            <div className="mt-2 text-xs text-gray-500 space-y-1">
+                {hasSystemKey ? (
+                    <p className="flex items-center gap-1.5 text-green-700 bg-green-50 p-2 rounded-lg border border-green-100">
+                        <ShieldCheck size={14} />
+                        環境變數中已偵測到 Key，若上方留空將自動使用系統 Key。
+                    </p>
+                ) : (
+                    <p className="text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-100">
+                        未偵測到系統環境變數，請務必手動輸入 Key 才能使用。
+                    </p>
+                )}
+            </div>
+          </div>
+
+          <hr className="border-gray-100" />
+
+          {/* Model Section */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-3">Gemini 模型選擇</label>
             <div className="space-y-3">
@@ -67,15 +149,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, c
             </div>
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-             <div className="flex items-center gap-2 mb-2 text-gray-800 font-bold text-sm">
-                <ShieldCheck size={16} className="text-green-600" />
-                API Key 設定
-             </div>
-             <p className="text-xs text-gray-500 leading-relaxed">
-                本環境已自動注入 <code className="bg-gray-200 px-1 py-0.5 rounded text-gray-700">process.env.API_KEY</code>，系統會自動管理金鑰安全性，無需手動輸入。
-             </p>
-          </div>
         </div>
 
         <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
@@ -86,10 +159,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, c
             取消
           </button>
           <button 
-            onClick={() => {
-              onSave(model);
-              onClose();
-            }}
+            onClick={handleSaveAll}
             className="px-5 py-2 text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-lg shadow-sm shadow-amber-200 flex items-center gap-2 transition-transform active:scale-95"
           >
             <Save size={16} />

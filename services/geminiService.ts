@@ -2,11 +2,20 @@ import { GoogleGenAI } from "@google/genai";
 import { SYSTEM_PROMPT } from "../constants";
 
 const getClient = () => {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-        throw new Error("API Key not found");
+    // 1. Try to get key from Local Storage (User setting)
+    const localKey = localStorage.getItem('gemini_api_key');
+    if (localKey && localKey.trim() !== '') {
+        return new GoogleGenAI({ apiKey: localKey.trim() });
     }
-    return new GoogleGenAI({ apiKey });
+
+    // 2. Fallback to Environment Variable (System setting)
+    const envKey = process.env.API_KEY;
+    if (envKey) {
+        return new GoogleGenAI({ apiKey: envKey });
+    }
+
+    // 3. No key found
+    throw new Error("找不到 Gemini API Key。請點擊右上角「設定」手動輸入您的 API Key。");
 };
 
 /**
@@ -33,10 +42,11 @@ export const generateExpression = async (
     theme: string,
     modelName: string = 'gemini-2.5-flash-image'
 ): Promise<string> => {
-    const client = getClient();
-    
-    // Construct a smart prompt with stricter rules for Text vs Action
-    const finalUserPrompt = `
+    try {
+        const client = getClient();
+        
+        // Construct a smart prompt with stricter rules for Text vs Action
+        const finalUserPrompt = `
 **Reference Image**: Provided is the character design.
 
 **Sticker Request Details**:
@@ -61,9 +71,8 @@ export const generateExpression = async (
     - High-quality sticker art.
     - **Background MUST be Solid Green #00FF00**.
     - **Composition**: Ensure the character fits well within the frame without being cut off.
-    `.trim();
+        `.trim();
 
-    try {
         const response = await client.models.generateContent({
             model: modelName,
             contents: {
