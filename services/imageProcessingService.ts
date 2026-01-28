@@ -34,7 +34,7 @@ function isGreenPixel(r: number, g: number, b: number): boolean {
 
   // 2. Loose Conditions
   const { h, s, l } = rgbToHsl(r, g, b);
-  
+
   const isHueMatch = h >= 60 && h <= 185;
   const isSatMatch = s >= 0.22;
   const isLightMatch = l >= 0.12 && l <= 0.95;
@@ -100,7 +100,7 @@ export async function removeBackground(imageSrc: string): Promise<string> {
       // --- 1. Flood Fill from Borders ---
       // We will mark background pixels in a mask.
       // 0 = unknown, 1 = background, 2 = foreground
-      const mask = new Uint8Array(w * h); 
+      const mask = new Uint8Array(w * h);
       const queue: number[] = [];
 
       // Add border pixels to queue
@@ -141,12 +141,57 @@ export async function removeBackground(imageSrc: string): Promise<string> {
         }
       }
 
+      // --- 1.5. Island Removal (Holes) ---
+      // Scan for isolated green parts (e.g. gaps between arms) that weren't reached by border fill
+      for (let i = 0; i < w * h; i++) {
+        if (mask[i] === 1) continue; // Already removed
+
+        const r = data[i * 4];
+        const g = data[i * 4 + 1];
+        const b = data[i * 4 + 2];
+
+        // Seed check: Must be relatively pure green to start a hole removal
+        // This prevents accidental deletion of green-ish clothing parts unless they are very green
+        const dist = Math.sqrt(Math.pow(r - 0, 2) + Math.pow(g - 255, 2) + Math.pow(b - 0, 2));
+
+        if (dist < 35) { // Threshold for recognizing a green hole seed
+          queue.push(i);
+
+          while (queue.length > 0) {
+            const idx = queue.shift()!;
+            if (mask[idx] === 1) continue;
+
+            // For expansion, strict checking is handled by isGreenPixel
+            // Re-verify strictly for the seed, but neighbors use standard logic
+            // Actually, just check isGreenPixel again for the popped item to be safe?
+            // Or assume seed implies valid? Be safe.
+
+            const cr = data[idx * 4];
+            const cg = data[idx * 4 + 1];
+            const cb = data[idx * 4 + 2];
+
+            if (isGreenPixel(cr, cg, cb)) {
+              mask[idx] = 1;
+              data[idx * 4 + 3] = 0;
+
+              const x = idx % w;
+              const y = Math.floor(idx / w);
+
+              if (x > 0 && mask[idx - 1] !== 1) queue.push(idx - 1);
+              if (x < w - 1 && mask[idx + 1] !== 1) queue.push(idx + 1);
+              if (y > 0 && mask[idx - w] !== 1) queue.push(idx - w);
+              if (y < h - 1 && mask[idx + w] !== 1) queue.push(idx + w);
+            }
+          }
+        }
+      }
+
       // --- 2. White Stroke Protection & Spill Suppression ---
       // Iterate through the whole image to fix edges
       for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
           const idx = y * w + x;
-          
+
           // If it was marked as foreground (or not reached by flood fill but is inside), check for spill
           if (mask[idx] !== 1) {
             const r = data[idx * 4];
@@ -177,9 +222,9 @@ export async function removeBackground(imageSrc: string): Promise<string> {
               // Spill Suppression: 
               // If Green is still dominant or reflecting, reduce G or boost R/B
               if (g > r && g > b) {
-                 // Simple spill removal: set G to average of R and B
-                 // Or reduce G to max(R, B)
-                 data[idx * 4 + 1] = Math.max(r, b);
+                // Simple spill removal: set G to average of R and B
+                // Or reduce G to max(R, B)
+                data[idx * 4 + 1] = Math.max(r, b);
               }
             }
           }
@@ -190,7 +235,7 @@ export async function removeBackground(imageSrc: string): Promise<string> {
       // Simple box blur on alpha channel for edges
       // We'll create a copy to read from
       const copyData = new Uint8ClampedArray(data);
-      
+
       for (let y = 1; y < h - 1; y++) {
         for (let x = 1; x < w - 1; x++) {
           const idx = y * w + x;
@@ -200,9 +245,9 @@ export async function removeBackground(imageSrc: string): Promise<string> {
           // To detect edge, look at neighbors in copyData
           let hasTransparentNeighbor = false;
           let hasOpaqueNeighbor = false;
-          
+
           const neighbors = [
-            (y-1)*w + x, (y+1)*w + x, y*w + (x-1), y*w + (x+1)
+            (y - 1) * w + x, (y + 1) * w + x, y * w + (x - 1), y * w + (x + 1)
           ];
 
           for (const nIdx of neighbors) {
@@ -217,9 +262,9 @@ export async function removeBackground(imageSrc: string): Promise<string> {
             let count = 0;
             for (let dy = -1; dy <= 1; dy++) {
               for (let dx = -1; dx <= 1; dx++) {
-                 const nIdx = (y + dy) * w + (x + dx);
-                 sumA += copyData[nIdx * 4 + 3];
-                 count++;
+                const nIdx = (y + dy) * w + (x + dx);
+                sumA += copyData[nIdx * 4 + 3];
+                count++;
               }
             }
             data[idx * 4 + 3] = sumA / count;
@@ -237,19 +282,19 @@ export async function removeBackground(imageSrc: string): Promise<string> {
 
 // Helper to resize image
 export async function resizeImage(blob: Blob, width: number, height: number): Promise<Blob> {
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            if(ctx) {
-                // Resize uses typical scaling, no green filling needed here as it's for download
-                ctx.drawImage(img, 0, 0, width, height);
-                canvas.toBlob((b) => resolve(b!), 'image/png');
-            }
-        };
-        img.src = URL.createObjectURL(blob);
-    });
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        // Resize uses typical scaling, no green filling needed here as it's for download
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((b) => resolve(b!), 'image/png');
+      }
+    };
+    img.src = URL.createObjectURL(blob);
+  });
 }
