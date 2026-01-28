@@ -3,9 +3,9 @@ import { UploadSection } from './components/UploadSection';
 import { ConfigSection } from './components/ConfigSection';
 import { ResultSection } from './components/ResultSection';
 import { SettingsModal } from './components/SettingsModal';
-import { GeneratedImage, StickerStyle, StickerPackInfo } from './types';
-import { EXPRESSIONS, STYLES } from './constants';
-import { fileToBase64, generateExpression } from './services/geminiService';
+import { GeneratedImage, StickerStyle, StickerPackInfo, StickerPlanItem } from './types';
+import { STYLES, EMOTIONS, COMMON_ACTIONS, SAME_AS_REF_ID, AUTO_MATCH_ID, CUSTOM_ACTION_ID, CUSTOM_EMOTION_ID } from './constants';
+import { fileToBase64, generateSticker } from './services/geminiService';
 import { removeBackground } from './services/imageProcessingService';
 import { saveImageRecord, getAllImages, deleteImageRecord, updateBatchNameInDB } from './services/storageService';
 import { Sparkles, StopCircle, Palette, Settings } from 'lucide-react';
@@ -13,11 +13,11 @@ import { Sparkles, StopCircle, Palette, Settings } from 'lucide-react';
 const App: React.FC = () => {
   // --- State ---
   const [sourceImage, setSourceImage] = useState<File | null>(null);
+  const [characterPrompt, setCharacterPrompt] = useState<string>('');
   
   // Config State
   const [selectedStyleId, setSelectedStyleId] = useState<string>('none');
-  const [selectedExpressions, setSelectedExpressions] = useState<string[]>(['happy']);
-  const [customExpressionText, setCustomExpressionText] = useState<string>('');
+  const [stickerPlan, setStickerPlan] = useState<StickerPlanItem[]>([]);
   const [themeText, setThemeText] = useState<string>('');
 
   // Pack Management State
@@ -26,7 +26,6 @@ const App: React.FC = () => {
 
   // App Settings State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [geminiModel, setGeminiModel] = useState<string>('gemini-2.5-flash-image');
 
   // Generation State
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
@@ -49,14 +48,6 @@ const App: React.FC = () => {
     loadImages();
   }, []);
 
-  // Load Settings from LocalStorage
-  useEffect(() => {
-    const savedModel = localStorage.getItem('gemini_model');
-    if (savedModel) {
-      setGeminiModel(savedModel);
-    }
-  }, []);
-
   // Compute existing packs from generatedImages
   const existingPacks: StickerPackInfo[] = useMemo(() => {
       const packsMap = new Map<string, StickerPackInfo>();
@@ -76,74 +67,31 @@ const App: React.FC = () => {
 
   const handleUpload = (file: File) => {
     setSourceImage(file);
-    // Don't clear previous results automatically
   };
 
-  const handleExpressionToggle = (id: string) => {
-    setSelectedExpressions(prev => 
-      prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]
-    );
+  const handleRemoveImage = () => {
+    setSourceImage(null);
   };
 
-  const handleSelectAllExpressions = (select: boolean) => {
-    if (select) {
-        setSelectedExpressions(EXPRESSIONS.map(e => e.id));
-    } else {
-        setSelectedExpressions([]);
-    }
+  const handleAddToPlan = (item: StickerPlanItem) => {
+    setStickerPlan(prev => [...prev, item]);
   };
 
-  const handleSaveSettings = (model: string) => {
-    setGeminiModel(model);
-    localStorage.setItem('gemini_model', model);
+  const handleRemoveFromPlan = (id: string) => {
+    setStickerPlan(prev => prev.filter(item => item.id !== id));
+  };
+
+  const handleSaveSettings = () => {
+    // Just close the modal, saving is handled inside SettingsModal for Key
+    setIsSettingsOpen(false);
   };
 
   // --- Core Generation Logic ---
 
-  const createPendingImages = (style: StickerStyle, batchId: string, batchName: string) => {
-    const newImages: GeneratedImage[] = [];
-    const timestamp = Date.now();
-    
-    // 1. Preset Expressions
-    selectedExpressions.forEach(expId => {
-      const exp = EXPRESSIONS.find(e => e.id === expId);
-      if (exp) {
-        newImages.push({
-          id: `preset-${expId}-${timestamp}-${Math.random()}`,
-          expressionName: exp.name,
-          originalImageBlob: new Blob(), // Placeholder
-          status: 'pending',
-          batchId: batchId,
-          batchName: batchName,
-          styleName: style.name,
-          createdAt: timestamp,
-          downloadOptions: { includeMain: false, includeTab: false }
-        });
-      }
-    });
-
-    // 2. Custom Expressions
-    const customLines = customExpressionText.split('\n').filter(line => line.trim() !== '');
-    customLines.forEach((line, index) => {
-      newImages.push({
-        id: `custom-${index}-${timestamp}-${Math.random()}`,
-        expressionName: line.trim(),
-        originalImageBlob: new Blob(), // Placeholder
-        status: 'pending',
-        batchId: batchId,
-        batchName: batchName,
-        styleName: style.name,
-        createdAt: timestamp,
-        downloadOptions: { includeMain: false, includeTab: false }
-      });
-    });
-
-    return newImages;
-  };
-
   const processQueue = async (
     queue: GeneratedImage[], 
-    base64Image: string, 
+    base64Image: string | null, 
+    charDesc: string,
     style: StickerStyle,
     theme: string,
     signal: AbortSignal
@@ -160,17 +108,46 @@ const App: React.FC = () => {
       ));
 
       try {
-        // Determine prompt text
-        let promptText = '';
-        if (item.id.startsWith('preset-')) {
-          const exp = EXPRESSIONS.find(e => e.name === item.expressionName);
-          promptText = exp ? exp.enName : item.expressionName;
+        // Resolve prompts from IDs
+        if (!item.planDetails) throw new Error("Plan details missing");
+
+        const { emotion, action, caption } = item.planDetails;
+        
+        // Emotion Prompt
+        let emotionPrompt = "";
+        if (emotion === SAME_AS_REF_ID || emotion === AUTO_MATCH_ID) {
+            emotionPrompt = ""; // Logic handled in geminiService by ID
+        } else if (emotion === CUSTOM_EMOTION_ID) {
+             // Custom text should be handled via ID check in geminiService or passed if stored.
+             // Currently simplified.
         } else {
-          promptText = item.expressionName; 
+            const emoObj = EMOTIONS.find(e => e.id === emotion);
+            emotionPrompt = emoObj ? emoObj.enName : emotion;
         }
 
-        // 1. Generate via Gemini (Pass Model)
-        const generatedBase64 = await generateExpression(base64Image, promptText, style.promptSuffix, theme, geminiModel);
+        // Action Prompt
+        let actionPrompt = "";
+        if (action === SAME_AS_REF_ID || action === AUTO_MATCH_ID) {
+            actionPrompt = ""; 
+        } else {
+            const actObj = COMMON_ACTIONS.find(a => a.id === action);
+            actionPrompt = actObj ? actObj.enName : action; 
+        }
+
+        // 1. Generate via Gemini (Model is hardcoded in service)
+        const generatedBase64 = await generateSticker(
+            base64Image,
+            charDesc,
+            {
+                emotionPrompt,
+                actionPrompt,
+                caption,
+                emotionId: emotion,
+                actionId: action
+            }, 
+            style.promptSuffix, 
+            theme
+        );
         
         if (signal.aborted) break;
 
@@ -206,7 +183,10 @@ const App: React.FC = () => {
   };
 
   const handleStartGeneration = async () => {
-    if (!sourceImage) return;
+    if (!sourceImage && !characterPrompt.trim()) {
+        alert("請至少「上傳照片」或「輸入角色描述」其中一項");
+        return;
+    }
 
     const style = STYLES.find(s => s.id === selectedStyleId) || STYLES[0];
     
@@ -223,7 +203,39 @@ const App: React.FC = () => {
         batchName = existing ? existing.name : 'Unknown Pack';
     }
 
-    const newImages = createPendingImages(style, batchId, batchName);
+    const timestamp = Date.now();
+    const newImages: GeneratedImage[] = stickerPlan.map((item, index) => {
+        let emoName = item.emotionId === AUTO_MATCH_ID ? '' : 
+                    item.emotionId === SAME_AS_REF_ID ? '原情' : 
+                    item.emotionId === CUSTOM_EMOTION_ID ? (item.customEmotionText || '自訂') :
+                    EMOTIONS.find(e => e.id === item.emotionId)?.name.split(' ')[0] || item.emotionId;
+        
+        let actName = item.actionId === AUTO_MATCH_ID ? '' : 
+                    item.actionId === SAME_AS_REF_ID ? '原動' :
+                    item.actionId === CUSTOM_ACTION_ID ? item.customActionText : 
+                    COMMON_ACTIONS.find(a => a.id === item.actionId)?.name.split(' ')[0] || item.actionId;
+
+        let displayName = `${emoName} ${actName}`.trim();
+        if (!displayName) displayName = "貼圖";
+        if (item.caption) displayName += ` (${item.caption})`;
+
+        return {
+            id: `gen-${index}-${timestamp}-${Math.random()}`,
+            expressionName: displayName,
+            planDetails: {
+                emotion: item.emotionId === CUSTOM_EMOTION_ID ? (item.customEmotionText || '') : item.emotionId,
+                action: item.actionId === CUSTOM_ACTION_ID ? (item.customActionText || '') : item.actionId,
+                caption: item.caption
+            },
+            originalImageBlob: new Blob(), 
+            status: 'pending',
+            batchId: batchId,
+            batchName: batchName,
+            styleName: style.name,
+            createdAt: timestamp,
+            downloadOptions: { includeMain: false, includeTab: false }
+        };
+    });
     
     if (newImages.length === 0) return;
 
@@ -231,7 +243,6 @@ const App: React.FC = () => {
     setIsGenerating(true);
     setProgress({ current: 0, total: newImages.length });
 
-    // Reset new pack input if used
     if (targetPackId === 'new') {
         setNewPackName('');
     }
@@ -240,8 +251,11 @@ const App: React.FC = () => {
     setAbortController(controller);
 
     try {
-      const base64 = await fileToBase64(sourceImage);
-      await processQueue(newImages, base64, style, themeText, controller.signal);
+      let base64 = null;
+      if (sourceImage) {
+          base64 = await fileToBase64(sourceImage);
+      }
+      await processQueue(newImages, base64, characterPrompt, style, themeText, controller.signal);
     } catch (e) {
       console.error("Batch processing error", e);
     } finally {
@@ -265,33 +279,53 @@ const App: React.FC = () => {
   // --- Individual Operations ---
 
   const handleRegenerate = async (id: string, refinePrompt: string = '') => {
-    if (!sourceImage) {
-        alert("請先上傳原始圖片才能重新生成");
+    // Check if we have source (either img or text)
+    if (!sourceImage && !characterPrompt) {
+        alert("缺少原始素材（圖片或文字），無法重新生成。");
         return;
     }
+
     const targetImage = generatedImages.find(img => img.id === id);
-    if (!targetImage) return;
+    if (!targetImage || !targetImage.planDetails) return;
 
     setGeneratedImages(prev => prev.map(img => 
         img.id === id ? { ...img, status: 'processing' } : img
     ));
 
     try {
-        const base64 = await fileToBase64(sourceImage);
+        let base64 = null;
+        if (sourceImage) {
+            base64 = await fileToBase64(sourceImage);
+        }
+
         const style = STYLES.find(s => s.name === targetImage.styleName) || STYLES[0];
         
-        let promptText = '';
-        const exp = EXPRESSIONS.find(e => e.name === targetImage.expressionName);
-        promptText = exp ? exp.enName : targetImage.expressionName;
+        const { emotion, action, caption } = targetImage.planDetails;
+        
+        // Recover prompts
+        let emotionPrompt = "";
+        const emoObj = EMOTIONS.find(e => e.id === emotion);
+        if (emoObj) emotionPrompt = emoObj.enName;
+        else if (emotion !== SAME_AS_REF_ID && emotion !== AUTO_MATCH_ID) emotionPrompt = emotion;
 
-        // Use current model with Optional Refinement Prompt
-        const generatedBase64 = await generateExpression(
-            base64, 
-            promptText, 
+        let actionPrompt = "";
+        const actObj = COMMON_ACTIONS.find(a => a.id === action);
+        if (actObj) actionPrompt = actObj.enName;
+        else if (action !== SAME_AS_REF_ID && action !== AUTO_MATCH_ID) actionPrompt = action;
+
+        const generatedBase64 = await generateSticker(
+            base64,
+            characterPrompt,
+            {
+                emotionPrompt,
+                actionPrompt,
+                caption,
+                emotionId: emotion,
+                actionId: action
+            }, 
             style.promptSuffix, 
             themeText, 
-            geminiModel, 
-            refinePrompt // Pass refinement
+            refinePrompt
         );
         
         const noBgDataUrl = await removeBackground(`data:image/png;base64,${generatedBase64}`);
@@ -319,9 +353,7 @@ const App: React.FC = () => {
   };
 
   const handleDeleteResult = async (id: string) => {
-    // Optimistic UI update
     setGeneratedImages(prev => prev.filter(img => img.id !== id));
-    // DB Update
     try {
         await deleteImageRecord(id);
     } catch (e) {
@@ -334,7 +366,6 @@ const App: React.FC = () => {
         const nextState = prev.map(img => 
             img.id === id ? { ...img, downloadOptions: { ...img.downloadOptions, ...options } } : img
         );
-        // Find the updated image to save to DB
         const updatedImg = nextState.find(img => img.id === id);
         if (updatedImg) {
             saveImageRecord(updatedImg).catch(console.error);
@@ -344,17 +375,13 @@ const App: React.FC = () => {
   };
 
   const handleUpdatePackName = async (batchId: string, newName: string) => {
-    // Optimistic UI update
     setGeneratedImages(prev => prev.map(img => 
         img.batchId === batchId ? { ...img, batchName: newName } : img
     ));
-
-    // Update DB
     try {
         await updateBatchNameInDB(batchId, newName);
     } catch (e) {
         console.error("Failed to update batch name in DB", e);
-        // Revert? For now assuming success or user will retry
     }
   };
 
@@ -363,14 +390,6 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
       
-      {/* Settings Modal */}
-      <SettingsModal 
-        isOpen={isSettingsOpen} 
-        onClose={() => setIsSettingsOpen(false)}
-        currentModel={geminiModel}
-        onSave={handleSaveSettings}
-      />
-
       {/* 1. Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-[1800px] mx-auto px-4 lg:px-6 h-16 flex items-center justify-between">
@@ -401,17 +420,18 @@ const App: React.FC = () => {
             
             <UploadSection 
                 image={sourceImage} 
-                onUpload={handleUpload} 
+                onUpload={handleUpload}
+                onRemove={handleRemoveImage}
+                characterPrompt={characterPrompt}
+                onPromptChange={setCharacterPrompt}
             />
             
             <ConfigSection 
                 selectedStyle={selectedStyleId}
                 onStyleChange={setSelectedStyleId}
-                selectedExpressions={selectedExpressions}
-                onExpressionToggle={handleExpressionToggle}
-                onSelectAllExpressions={handleSelectAllExpressions}
-                customExpressionText={customExpressionText}
-                onCustomExpressionChange={setCustomExpressionText}
+                stickerPlan={stickerPlan}
+                onAddToPlan={handleAddToPlan}
+                onRemoveFromPlan={handleRemoveFromPlan}
                 themeText={themeText}
                 onThemeChange={setThemeText}
                 // Pack Props
@@ -420,6 +440,8 @@ const App: React.FC = () => {
                 onTargetPackIdChange={setTargetPackId}
                 newPackName={newPackName}
                 onNewPackNameChange={setNewPackName}
+                // Source State
+                hasReferenceImage={!!sourceImage}
             />
 
             {/* Action Bar */}
@@ -445,7 +467,7 @@ const App: React.FC = () => {
                     ) : (
                         <button 
                                 onClick={handleStartGeneration}
-                                disabled={!sourceImage || (selectedExpressions.length === 0 && customExpressionText.trim() === '')}
+                                disabled={(!sourceImage && !characterPrompt.trim()) || stickerPlan.length === 0}
                                 className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold py-3.5 rounded-xl hover:from-amber-600 hover:to-orange-600 transition-all disabled:from-gray-300 disabled:to-gray-300 disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:shadow-amber-200/50 transform active:scale-[0.99]"
                             >
                                 <Sparkles size={20} />
@@ -468,6 +490,13 @@ const App: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {/* Settings Modal */}
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)}
+        onSave={handleSaveSettings}
+      />
     </div>
   );
 };

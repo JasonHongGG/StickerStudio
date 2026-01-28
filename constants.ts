@@ -1,4 +1,13 @@
-import { Expression, StickerStyle } from './types';
+import { Emotion, Action, StickerStyle } from './types';
+
+export const SAME_AS_REF_ID = 'same-as-ref';
+export const AUTO_MATCH_ID = 'auto-match';
+export const CUSTOM_ACTION_ID = 'custom-action';
+export const CUSTOM_EMOTION_ID = 'custom-emotion';
+
+export const MODEL_CONFIG = {
+  modelName: 'gemini-3-pro-image-preview',
+};
 
 export const STYLES: StickerStyle[] = [
   { id: 'none', name: '無 (和原始圖片風格一致)', promptSuffix: 'keep the original art style exactly' },
@@ -10,42 +19,37 @@ export const STYLES: StickerStyle[] = [
   { id: '3d', name: '3D 渲染 / 黏土風', promptSuffix: 'in 3D rendering style, clay material (plasticine), blind box toy texture, soft studio lighting, ambient occlusion, cute 3D character' },
 ];
 
-export const EXPRESSIONS: Expression[] = [
-  { id: 'happy', name: '😊 開心 / 歡呼', enName: 'Happy, smiling cheerfully', defaultChecked: true },
-  { id: 'awkward', name: '🤔 尷尬 / 不自在', enName: 'Awkward smile, sweat drop'},
-  { id: 'scared', name: '😨 害怕 / 躲避', enName: 'Scared, terrified expression'},
-  { id: 'crying', name: '😭 哭泣 / 流淚', enName: 'Crying, tears streaming down' },
-  { id: 'angry', name: '💢 生氣 / 翻桌', enName: 'Angry, furious, rage' },
-  { id: 'reject', name: '🙅‍♂️ 不要 / 拒絕', enName: 'Refusing, saying no, crossing arms' },
-  { id: 'sorry', name: '🙇‍♂️ 對不起 / 土下座', enName: 'Apologetic, bowing down, sorry' },
-  { id: 'tired', name: '😫 好累 / 眼神死', enName: 'Exhausted, dead eyes, tired' },
-  { id: 'shocked_shiver', name: '😨 嚇到 / 發抖', enName: 'Shocked, shivering in fear' },
-  { id: 'ok', name: '👌 OK / 沒問題', enName: 'OK gesture, confident, fine' },
-  { id: 'lol', name: '😆 大笑 / 笑死', enName: 'Laughing out loud, LOL' },
-  { id: 'shocked', name: '😱 驚訝 / 震驚', enName: 'Shocked face, screaming' },
-  { id: 'confused', name: '❓ 疑惑 / 蛤?', enName: 'Confused, question mark face' },
-  { id: 'shy', name: '😳 害羞 / 臉紅', enName: 'Shy, blushing face' },
-  { id: 'speechless', name: '💬 無言 / 點點點', enName: 'Speechless, dot dot dot' },
-  { id: 'cool', name: '😎 耍帥 / 墨鏡', enName: 'Cool, wearing sunglasses' },
-  { id: 'excited', name: '🤩 期待 / 發光', enName: 'Excited, starry eyes' },
-  { id: 'busy', name: '💻 忙碌 / 工作中', enName: 'Busy working, typing on laptop' },
-  { id: 'on_my_way', name: '🏃 馬上到 / 趕路', enName: 'Running, in a hurry, on my way' },
-  { id: 'please', name: '🥺 拜託 / 請求', enName: 'Begging, puppy eyes, please' },
-  { id: 'yummy', name: '😋 好吃 / 吃飯', enName: 'Yummy, licking lips, eating' },
-  { id: 'tea', name: '☕ 喝茶 / 休息', enName: 'Drinking tea, relaxing, break time' },
-  { id: 'sleep', name: '😴 睡覺 / Zzz', enName: 'Sleeping, Zzz, snot bubble' },
-  { id: 'peeking', name: '👻 偷看 / 暗中觀察', enName: 'Peeking through fingers, observing secretly' },
-  { id: 'idea', name: '💡 想到好點子', enName: 'Idea, lightbulb moment' },
-  { id: 'sick', name: '😷 生病 / 口罩', enName: 'Sick, wearing mask' },
-  { id: 'bath', name: '🛁 洗澡 / 舒服', enName: 'Taking a bath, relaxing' },
-  { id: 'shopping', name: '🛍️ 購物 / 買買買', enName: 'Shopping, holding bags' },
-  { id: 'study', name: '📖 讀書 / 學習', enName: 'Studying, reading book' },
-  { id: 'game', name: '🎮 玩遊戲 / 耍廢', enName: 'Playing video games, lazy' },
-  { id: 'phone', name: '📱 滑手機 / 已讀', enName: 'Looking at phone, scrolling' },
-  { id: 'drive', name: '🚗 開車 / 兜風', enName: 'Driving a car' },
-  { id: 'rain', name: '☔ 下雨 / 撐傘', enName: 'Raining, holding umbrella' },
-  { id: 'hot', name: '🥵 好熱 / 融化', enName: 'Hot weather, melting, sweating' },
-  { id: 'cold', name: '🥶 好冷 / 發抖', enName: 'Freezing cold, blue face' },
+export const EMOTIONS: Emotion[] = [
+  { id: 'happy', name: '😊 開心 / 微笑', enName: 'Happy, smiling cheerfully' },
+  { id: 'laugh', name: '😆 大笑 / 爆笑', enName: 'Laughing out loud, eyes closed in joy' },
+  { id: 'angry', name: '💢 生氣 / 憤怒', enName: 'Angry, furious, veins popping' },
+  { id: 'sad', name: '😢 難過 / 泛淚', enName: 'Sad, teary eyes, frowning' },
+  { id: 'crying', name: '😭 痛哭 / 流淚', enName: 'Crying loudly, tears streaming down' },
+  { id: 'shocked', name: '😱 驚嚇 / 下巴掉', enName: 'Shocked, screaming, jaw dropping' },
+  { id: 'shy', name: '😳 害羞 / 臉紅', enName: 'Shy, blushing face, looking away' },
+  { id: 'love', name: '😍 喜愛 / 眼冒愛心', enName: 'In love, heart-shaped eyes' },
+  { id: 'confused', name: '❓ 疑惑 / 不解', enName: 'Confused, questioning expression' },
+  { id: 'tired', name: '😫 疲累 / 眼神死', enName: 'Exhausted, dead fish eyes, dark circles' },
+  { id: 'confident', name: '😏 自信 / 跩', enName: 'Smug, confident smirk' },
+  { id: 'scared', name: '😨 害怕 / 發抖', enName: 'Scared, pale face, shivering' },
+  { id: 'speechless', name: '😑 無言 / 點點點', enName: 'Speechless, expressionless, annoyed' },
+  { id: 'excited', name: '🤩 期待 / 星星眼', enName: 'Excited, starry eyes, anticipating' },
+];
+
+export const COMMON_ACTIONS: Action[] = [
+  { id: 'thumbs_up', name: '👍 比讚 / 同意', enName: 'Giving a thumbs up gesture' },
+  { id: 'ok_sign', name: '👌 OK手勢', enName: 'Making an OK sign with hand' },
+  { id: 'heart_hands', name: '🫶 比愛心', enName: 'Making heart shape with hands' },
+  { id: 'bowing', name: '🙇 土下座 / 道歉', enName: 'Bowing down deeply on knees (dogeza)' },
+  { id: 'clapping', name: '👏 拍手 / 鼓掌', enName: 'Clapping hands' },
+  { id: 'cheering', name: '🙌 歡呼 / 舉雙手', enName: 'Raising both hands in victory' },
+  { id: 'running', name: '🏃 奔跑 / 趕路', enName: 'Running fast, motion lines' },
+  { id: 'working', name: '💻 打電腦 / 工作', enName: 'Typing on a laptop, busy' },
+  { id: 'eating', name: '🍜 吃東西 / 美味', enName: 'Eating delicious food, holding chopsticks/spoon' },
+  { id: 'sleeping', name: '😴 睡覺', enName: 'Sleeping, snot bubble, Zzz' },
+  { id: 'phone', name: '📱 滑手機', enName: 'Looking at smartphone' },
+  { id: 'pointing', name: '👉 指人 / 確認', enName: 'Pointing finger forward' },
+  { id: 'stop', name: '🙅 打叉 / 拒絕', enName: 'Crossing arms in X shape, refusing' },
 ];
 
 export const SYSTEM_PROMPT = `
@@ -53,19 +57,20 @@ You are an expert Sticker Artist.
 
 **CRITICAL RULES:**
 1. **Match Source Framing EXACTLY**:
-   - IF the Reference Image is **Half-Body** (Head & Shoulders), you MUST output **Half-Body**. Do NOT invent legs or a lower body.
-   - IF the Reference Image is **Full-Body**, you MUST output **Full-Body**.
-   - Do NOT change the body proportions or head-to-body ratio unless the Style explicitly asks for it (e.g. Chibi).
+   - IF the Reference Image is **Half-Body**, output **Half-Body**.
+   - IF the Reference Image is **Full-Body**, output **Full-Body**.
+   - Do NOT invent legs or change proportions unless the Style (e.g. Chibi) explicitly demands it.
 
 2. **Character Identity**:
    - Maintain the character's species, eye shape, markings, and key features perfectly.
 
 3. **Background**: Always Solid Green #00FF00.
 
-4. **Refinement/Editing**:
-   - When asked to add items (e.g., "add sunglasses"), keep the **original pose and composition** as stable as possible. Only modify the necessary area.
+4. **Composition Logic**:
+   - **Expression**: Follows the user's specific instruction. If "Same as Reference", keep the face exactly as is.
+   - **Pose/Action**: Follows the user's specific instruction. If "Same as Reference", keep the body exactly as is.
+   - **Text**: Only add text if explicitly provided in the "Caption".
 
-5. **Text Handling**: 
-   - Only add text if the user input is a specific spoken phrase. 
-   - Never write metadata like "Theme" or "Style" as text.
+5. **Style Consistency**:
+   - Apply the requested art style (e.g., Anime, 3D) while keeping the character recognizable.
 `;

@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { SYSTEM_PROMPT } from "../constants";
+import { SYSTEM_PROMPT, SAME_AS_REF_ID, AUTO_MATCH_ID, MODEL_CONFIG } from "../constants";
 
 const getClient = () => {
     // 1. Try to get key from Local Storage (User setting)
@@ -25,7 +25,6 @@ export const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
-             // Remove the Data URL prefix (e.g., "data:image/png;base64,")
             const result = reader.result as string;
             const base64 = result.split(',')[1];
             resolve(base64);
@@ -35,68 +34,127 @@ export const fileToBase64 = (file: File): Promise<string> => {
     });
 };
 
-export const generateExpression = async (
-    imageBase64: string,
-    expressionInput: string,
+export const generateSticker = async (
+    imageBase64: string | null,
+    characterDescription: string,
+    plan: {
+        emotionPrompt: string;
+        actionPrompt: string;
+        caption: string;
+        emotionId: string; // for logic checks
+        actionId: string; // for logic checks
+    },
     styleSuffix: string,
     theme: string,
-    modelName: string = 'gemini-2.5-flash-image',
     refinePrompt: string = '' 
 ): Promise<string> => {
     try {
         const client = getClient();
         
         const themeContext = theme 
-            ? `Context: The character is in a scenario related to "${theme}".` 
+            ? `Context/Theme: The character is in a scenario related to "${theme}". Add relevant props if they fit the action.` 
             : "";
 
-        // Refinement logic: Focus on ADDING/MODIFYING specific elements without changing the base.
+        // Refinement Instruction
         const refinementInstruction = refinePrompt 
             ? `\n\n### ⚠️ EDITING INSTRUCTIONS ⚠️
             The user wants to REFINE the result with this specific detail: "${refinePrompt}".
-            - **DO NOT CHANGE THE POSE** or framing unless the user explicitly asks for a different action.
-            - If the user asks for an accessory (e.g., sunglasses, hat), add it naturally to the character's CURRENT pose.
             - Keep the anatomy consistent with the Reference Image.` 
             : "";
 
-        const finalUserPrompt = `
+        // Construct the 3-Step Logic
+        let emotionInstruction = "";
+        let actionInstruction = "";
+        
+        // 1. Emotion Logic
+        if (plan.emotionId === SAME_AS_REF_ID) {
+            emotionInstruction = "Expression: **KEEP EXACTLY THE SAME** as the reference image.";
+        } else if (plan.emotionId === AUTO_MATCH_ID) {
+            emotionInstruction = "Expression: Create an expression that naturally fits the requested Action.";
+        } else {
+            emotionInstruction = `Expression: ${plan.emotionPrompt}`;
+        }
+
+        // 2. Action Logic
+        if (plan.actionId === SAME_AS_REF_ID) {
+            actionInstruction = "Pose/Action: **KEEP EXACTLY THE SAME** as the reference image. Do not change the pose.";
+        } else if (plan.actionId === AUTO_MATCH_ID) {
+            actionInstruction = "Pose/Action: Create a pose that naturally emphasizes the requested Expression.";
+        } else {
+            actionInstruction = `Pose/Action: ${plan.actionPrompt}`;
+        }
+
+        // 3. Caption Logic
+        const captionInstruction = plan.caption 
+            ? `Text/Speech Bubble: Add a text bubble with the exact content: "${plan.caption}". Ensure the text is legible.`
+            : `Text/Speech Bubble: **NO TEXT**. Do not add any speech bubbles or written words.`;
+
+        // --- Build Core Prompt based on Input Mode ---
+        let baseIdentityPrompt = "";
+        
+        if (imageBase64 && characterDescription) {
+            // HYBRID MODE
+            baseIdentityPrompt = `
+**TASK**: Generate a high-quality LINE sticker based on the **Reference Image** combined with the **Text Description**.
+**1. CHARACTER IDENTITY**:
+   - Primary Visuals: Take species, colors, and key markings from the Reference Image.
+   - Modifications: Apply these details from the text: "${characterDescription}".
+            `;
+        } else if (imageBase64) {
+            // IMAGE ONLY MODE
+            baseIdentityPrompt = `
 **TASK**: Generate a high-quality LINE sticker based on the **Reference Image**.
+**1. CHARACTER IDENTITY**:
+   - Maintain the character's species, eye shape, markings, and key features perfectly from the image.
+   - **Framing**: Check the Reference Image. If cropped at chest -> Generate Half-Body. If full body -> Generate Full-Body.
+            `;
+        } else {
+            // TEXT ONLY MODE
+            baseIdentityPrompt = `
+**TASK**: Generate a high-quality LINE sticker based on the **Text Description**.
+**1. CHARACTER IDENTITY**:
+   - Create a character based exactly on this description: "${characterDescription}".
+   - Ensure consistent design across all generations.
+            `;
+        }
 
-**1. STRICT VISUAL CONSTRAINTS**:
-*   **Framing**: Check the Reference Image. 
-    - Is it cropped at the chest? -> Generate **Half-Body**.
-    - Is it full body? -> Generate **Full-Body**.
-    - **DO NOT** add unrequested limbs or change the camera distance significantly.
-*   **Identity**: You MUST maintain the character's features (eyes, markings, color) exactly.
-*   **Style**: Render ${styleSuffix || "keeping the original art style"}.
+        const finalUserPrompt = `
+${baseIdentityPrompt}
 
-**2. CONTENT**:
-*   **Expression/Action**: "${expressionInput}".
+**2. STYLE**:
+   - Render ${styleSuffix || "in a clean, high-quality digital sticker style"}.
+
+**3. STICKER CONTENT CONFIGURATION**:
+*   ${emotionInstruction}
+*   ${actionInstruction}
+*   ${captionInstruction}
+
+**4. CONTEXT**:
 *   ${themeContext}
     ${refinementInstruction}
 
-**3. TEXT RULES**:
-*   IF User Input ("${expressionInput}") is a spoken phrase -> Add text bubble.
-*   ELSE -> NO TEXT.
-
-**4. FORMAT**:
+**5. OUTPUT FORMAT**:
 *   Background: Solid Green #00FF00.
         `.trim();
 
+        // Prepare API Content
+        const requestParts: any[] = [];
+        
+        if (imageBase64) {
+            requestParts.push({
+                inlineData: {
+                    mimeType: 'image/png', 
+                    data: imageBase64
+                }
+            });
+        }
+        
+        requestParts.push({ text: finalUserPrompt });
+
         const response = await client.models.generateContent({
-            model: modelName,
+            model: MODEL_CONFIG.modelName,
             contents: {
-                parts: [
-                    {
-                        inlineData: {
-                            mimeType: 'image/png', 
-                            data: imageBase64
-                        }
-                    },
-                    {
-                        text: finalUserPrompt
-                    }
-                ]
+                parts: requestParts
             },
             config: {
                systemInstruction: SYSTEM_PROMPT

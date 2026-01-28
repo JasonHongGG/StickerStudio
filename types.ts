@@ -4,16 +4,36 @@ export interface StickerStyle {
   promptSuffix: string;
 }
 
-export interface Expression {
+export interface Emotion {
   id: string;
-  name: string; // Traditional Chinese
-  enName: string; // English for prompt
-  defaultChecked?: boolean;
+  name: string; // Display name
+  enName: string; // Prompt name
+}
+
+export interface Action {
+  id: string;
+  name: string; // Display name
+  enName: string; // Prompt name
+}
+
+export interface StickerPlanItem {
+  id: string;
+  emotionId: string; // 'auto', 'same', specific ID, or 'custom-emotion'
+  customEmotionText?: string; // If emotionId is 'custom'
+  actionId: string; // 'auto', 'same', specific ID, or custom text
+  customActionText?: string; // If actionId is 'custom'
+  caption: string;
 }
 
 export interface GeneratedImage {
   id: string;
-  expressionName: string;
+  expressionName: string; // Legacy field, now acts as a summary string
+  // New fields for granular tracking
+  planDetails?: {
+    emotion: string;
+    action: string;
+    caption: string;
+  };
   originalImageBlob: Blob; // The 370x320 transparent PNG
   status: 'pending' | 'processing' | 'completed' | 'failed';
   error?: string;
@@ -26,13 +46,6 @@ export interface GeneratedImage {
     includeMain: boolean; // 240x240
     includeTab: boolean; // 96x74
   };
-}
-
-export interface GenerationConfig {
-  styleId: string;
-  selectedExpressions: string[]; // IDs
-  customExpressions: string[]; // Raw text
-  theme: string;
 }
 
 export interface StickerPackInfo {

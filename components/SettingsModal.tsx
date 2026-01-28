@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Server, ShieldCheck, Key, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { MODEL_CONFIG } from '../constants';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  currentModel: string;
-  onSave: (model: string) => void;
+  onSave: () => void;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, currentModel, onSave }) => {
-  const [model, setModel] = useState(currentModel);
+export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }) => {
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   
@@ -19,24 +18,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, c
   // Sync state when opening
   useEffect(() => {
     if (isOpen) {
-        setModel(currentModel);
         // Load key from local storage
         const savedKey = localStorage.getItem('gemini_api_key') || '';
         setApiKey(savedKey);
     }
-  }, [isOpen, currentModel]);
+  }, [isOpen]);
 
   const handleSaveAll = () => {
-    // 1. Save Model (via parent callback)
-    onSave(model);
-
-    // 2. Save API Key (locally)
+    // Save API Key (locally)
     if (apiKey.trim()) {
         localStorage.setItem('gemini_api_key', apiKey.trim());
     } else {
         localStorage.removeItem('gemini_api_key');
     }
 
+    onSave(); // Notify parent if needed
     onClose();
   };
 
@@ -48,7 +44,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, c
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100">
         <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-white">
           <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -113,40 +109,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, c
 
           <hr className="border-gray-100" />
 
-          {/* Model Section */}
+          {/* Model Info (Read Only) */}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-3">Gemini 模型選擇</label>
-            <div className="space-y-3">
-              <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${model === 'gemini-2.5-flash-image' ? 'border-amber-400 bg-amber-50 ring-1 ring-amber-200' : 'border-gray-200 hover:border-amber-200 hover:bg-gray-50'}`}>
-                <input 
-                  type="radio" 
-                  name="model" 
-                  value="gemini-2.5-flash-image"
-                  checked={model === 'gemini-2.5-flash-image'}
-                  onChange={(e) => setModel(e.target.value)}
-                  className="mt-1 text-amber-500 focus:ring-amber-400 accent-amber-500"
-                />
-                <div>
-                  <div className="font-bold text-gray-800 text-sm">Gemini 2.5 Flash Image</div>
-                  <div className="text-xs text-gray-500 mt-0.5">速度快、成本低，預設模型，適合快速生成多張貼圖。</div>
-                </div>
-              </label>
-
-              <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${model === 'gemini-3-pro-image-preview' ? 'border-amber-400 bg-amber-50 ring-1 ring-amber-200' : 'border-gray-200 hover:border-amber-200 hover:bg-gray-50'}`}>
-                <input 
-                  type="radio" 
-                  name="model" 
-                  value="gemini-3-pro-image-preview"
-                  checked={model === 'gemini-3-pro-image-preview'}
-                  onChange={(e) => setModel(e.target.value)}
-                  className="mt-1 text-amber-500 focus:ring-amber-400 accent-amber-500"
-                />
-                <div>
-                  <div className="font-bold text-gray-800 text-sm">Gemini 3 Pro Image (Preview)</div>
-                  <div className="text-xs text-gray-500 mt-0.5">高畫質預覽版，對複雜指令理解力更強，適合精細創作。</div>
-                </div>
-              </label>
-            </div>
+             <label className="block text-sm font-bold text-gray-700 mb-2">目前使用模型</label>
+             <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 text-sm text-gray-600 font-mono">
+                {MODEL_CONFIG.modelName}
+             </div>
+             <p className="text-xs text-gray-400 mt-1">
+                系統預設使用 Gemini 3 Pro (Preview) 模型以獲得最佳貼圖品質。
+             </p>
           </div>
 
         </div>
