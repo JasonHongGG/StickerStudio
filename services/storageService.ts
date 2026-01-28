@@ -56,8 +56,8 @@ export const getAllImages = async (): Promise<GeneratedImage[]> => {
     const request = store.getAll();
 
     request.onsuccess = () => {
-        // Sort by createdAt desc inside the app usually, but we return raw here
-        resolve(request.result as GeneratedImage[]);
+      // Sort by createdAt desc inside the app usually, but we return raw here
+      resolve(request.result as GeneratedImage[]);
     };
     request.onerror = () => reject(request.error);
   });
@@ -82,57 +82,86 @@ export const deleteImageRecord = async (id: string): Promise<void> => {
  * Update the batchName for all images with a specific batchId
  */
 export const updateBatchNameInDB = async (batchId: string, newName: string): Promise<void> => {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(STORE_NAME, 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-        const index = store.index('batchId');
-        const request = index.getAll(batchId);
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const index = store.index('batchId');
+    const request = index.getAll(batchId);
 
-        request.onsuccess = () => {
-            const images: GeneratedImage[] = request.result;
-            if (!images || images.length === 0) {
-                resolve();
-                return;
-            }
+    request.onsuccess = () => {
+      const images: GeneratedImage[] = request.result;
+      if (!images || images.length === 0) {
+        resolve();
+        return;
+      }
 
-            let updatedCount = 0;
-            images.forEach(img => {
-                const updatedImg = { ...img, batchName: newName };
-                store.put(updatedImg);
-                updatedCount++;
-            });
+      let updatedCount = 0;
+      images.forEach(img => {
+        const updatedImg = { ...img, batchName: newName };
+        store.put(updatedImg);
+        updatedCount++;
+      });
 
-            // We can consider it done when transaction completes, but simple counting is fine for logic
-            resolve();
-        };
-        
-        request.onerror = () => reject(request.error);
-    });
+      // We can consider it done when transaction completes, but simple counting is fine for logic
+      resolve();
+    };
+
+    // ... existing updateBatchNameInDB ...
+    request.onerror = () => reject(request.error);
+  });
+};
+
+/**
+ * Update the batchId and batchName for a specific image
+ */
+export const updateImageBatchId = async (imageId: string, newBatchId: string, newBatchName: string): Promise<void> => {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.get(imageId);
+
+    request.onsuccess = () => {
+      const data = request.result as GeneratedImage;
+      if (!data) {
+        reject(new Error("Image not found"));
+        return;
+      }
+
+      const updatedDoc = { ...data, batchId: newBatchId, batchName: newBatchName };
+      const updateRequest = store.put(updatedDoc);
+
+      updateRequest.onsuccess = () => resolve();
+      updateRequest.onerror = () => reject(updateRequest.error);
+    };
+
+    request.onerror = () => reject(request.error);
+  });
 };
 
 /**
  * Delete multiple images by IDs (helper)
  */
 export const deleteImageRecords = async (ids: string[]): Promise<void> => {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(STORE_NAME, 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-        
-        let processed = 0;
-        
-        if (ids.length === 0) {
-            resolve();
-            return;
-        }
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
 
-        ids.forEach(id => {
-            store.delete(id);
-            processed++;
-        });
+    let processed = 0;
 
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = () => reject(transaction.error);
+    if (ids.length === 0) {
+      resolve();
+      return;
+    }
+
+    ids.forEach(id => {
+      store.delete(id);
+      processed++;
     });
+
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
 };

@@ -5,8 +5,28 @@ export const AUTO_MATCH_ID = 'auto-match';
 export const CUSTOM_ACTION_ID = 'custom-action';
 export const CUSTOM_EMOTION_ID = 'custom-emotion';
 
-export const MODEL_CONFIG = {
-  modelName: 'gemini-3-pro-image-preview',
+export const STORAGE_KEYS = {
+  serviceType: 'ai_service_type',
+  geminiApiKey: 'gemini_api_key',
+  localApiHost: 'local_api_host',
+  localApiPort: 'local_api_port',
+};
+
+export const API_CONFIG = {
+  gemini: {
+    modelName: 'gemini-3-pro-image-preview',
+    // apiKey is read from storage using STORAGE_KEYS.geminiApiKey
+  },
+  local: {
+    modelName: 'gemini-3-pro-image-preview',
+    defaultHost: '127.0.0.1',
+    defaultPort: 8000,
+    endpoints: {
+      health: '/health',
+      chat: '/chat',
+      stream: '/stream',
+    }
+  }
 };
 
 export const STYLES: StickerStyle[] = [
