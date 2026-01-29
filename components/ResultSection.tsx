@@ -227,7 +227,7 @@ const DraggableImageCard: React.FC<{
 
             {/* Image Display Area */}
             <div
-                className={`h-64 flex items-center justify-center p-4 bg-gray-50/30 relative overflow-hidden ${isCompleted ? 'cursor-zoom-in' : ''}`}
+                className={`h-44 flex items-center justify-center p-3 bg-gray-50/30 relative overflow-hidden ${isCompleted ? 'cursor-zoom-in' : ''}`}
                 onClick={(e) => {
                     if (isCompleted) {
                         e.stopPropagation(); // prevent drag start if clicking image directly? No, image is main drag handle usually.
@@ -243,7 +243,11 @@ const DraggableImageCard: React.FC<{
                 {isCompleted && img.originalImageBlob && (
                     <>
                         {/* We use pointer-events-none on image so drag event bubbles to container */}
-                        <img src={URL.createObjectURL(img.originalImageBlob)} alt={img.expressionName} className="w-full h-full object-contain drop-shadow-sm pointer-events-none" />
+                        <img
+                            src={URL.createObjectURL(img.originalImageBlob)}
+                            alt={img.expressionName}
+                            className="w-full h-full object-contain drop-shadow-sm pointer-events-none transition-transform duration-300 ease-out group-hover:scale-110"
+                        />
                         {!isOverlay && (
                             <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[1px]">
                                 <div className="bg-white/90 rounded-full p-2 shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-transform"><ZoomIn size={20} className="text-gray-700" /></div>
