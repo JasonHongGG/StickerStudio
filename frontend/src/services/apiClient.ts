@@ -11,6 +11,8 @@ export interface GenerateStickerRequestDTO {
         caption: string;
         emotionId: string;
         actionId: string;
+        emotionPrompt: string;
+        actionPrompt: string;
     };
     styleSuffix: string;
     theme: string;

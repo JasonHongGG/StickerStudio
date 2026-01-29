@@ -46,7 +46,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-100">
         <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-white">
           <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-            <Server size={20} className="text-amber-500" />
+            <Server size={20} className="text-gray-900" />
             AI 服務設定
           </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1.5 rounded-full hover:bg-gray-100 transition-colors">
@@ -62,7 +62,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
 
             {isChecking ? (
               <div className="flex items-center gap-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="animate-spin w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full"></div>
+                <div className="animate-spin w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full"></div>
                 <span className="text-sm text-gray-600">正在檢查...</span>
               </div>
             ) : healthError ? (
@@ -120,7 +120,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, o
           </button>
           <button
             onClick={handleSave}
-            className="px-5 py-2 text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-lg shadow-sm shadow-amber-200 flex items-center gap-2 transition-transform active:scale-95"
+            className="px-5 py-2 text-sm font-bold text-white bg-black hover:bg-gray-800 rounded-lg shadow-sm flex items-center gap-2 transition-transform active:scale-95"
           >
             <Save size={16} />
             確認

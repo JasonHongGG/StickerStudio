@@ -130,7 +130,7 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
                 {/* Target Pack Selection */}
                 <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
-                        <FolderOpen size={16} className="text-amber-500" />
+                        <FolderOpen size={16} className="text-gray-900" />
                         選擇貼圖包
                     </label>
 
@@ -142,8 +142,8 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
                                 setIsStyleDropdownOpen(false);
                             }}
                             className={`w-full bg-white border rounded-xl p-3 text-sm flex items-center justify-between transition-all duration-200 ${isPackDropdownOpen
-                                    ? 'border-amber-400 ring-4 ring-amber-100'
-                                    : 'border-gray-300 hover:border-amber-300 hover:shadow-sm'
+                                ? 'border-gray-900 ring-2 ring-gray-100'
+                                : 'border-gray-300 hover:border-gray-400 hover:shadow-sm'
                                 }`}
                         >
                             <span className={`truncate font-medium ${targetPackId === 'new' ? 'text-blue-600' : 'text-gray-700'}`}>
@@ -181,13 +181,13 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
                                                     setIsPackDropdownOpen(false);
                                                 }}
                                                 className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition-colors ${targetPackId === pack.id
-                                                        ? 'bg-amber-50 text-amber-900 font-bold'
-                                                        : 'text-gray-700 hover:bg-gray-50'
+                                                    ? 'bg-gray-100 text-gray-900 font-bold'
+                                                    : 'text-gray-700 hover:bg-gray-50'
                                                     }`}
                                             >
-                                                <FolderOpen size={14} className={targetPackId === pack.id ? 'text-amber-500' : 'text-gray-400'} />
+                                                <FolderOpen size={14} className={targetPackId === pack.id ? 'text-gray-900' : 'text-gray-400'} />
                                                 <span className="truncate flex-1">{pack.name}</span>
-                                                {targetPackId === pack.id && <Check size={14} className="text-amber-600" />}
+                                                {targetPackId === pack.id && <Check size={14} className="text-gray-900" />}
                                             </button>
                                         ))}
                                     </div>
@@ -203,7 +203,7 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
                                 value={newPackName}
                                 onChange={(e) => onNewPackNameChange(e.target.value)}
                                 placeholder="輸入新貼圖包名稱 (例: 龍年賀歲)"
-                                className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:border-amber-400 focus:ring-4 focus:ring-amber-100 outline-none bg-white placeholder-gray-400 transition-all shadow-sm"
+                                className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none bg-white placeholder-gray-400 transition-all shadow-sm"
                                 autoFocus
                             />
                         </div>
@@ -219,7 +219,7 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
                         規劃貼圖內容
                     </h2>
                     {stickerPlan.length > 0 && (
-                        <span className="text-xs font-bold text-amber-800 bg-amber-50 px-2 py-1 rounded-full border border-amber-200">
+                        <span className="text-xs font-bold text-white bg-black px-2 py-1 rounded-full">
                             清單: {stickerPlan.length} 張
                         </span>
                     )}
@@ -239,8 +239,8 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
                                 setIsPackDropdownOpen(false);
                             }}
                             className={`w-full bg-white border rounded-xl p-3 text-sm flex items-center justify-between transition-all duration-200 ${isStyleDropdownOpen
-                                    ? 'border-amber-400 ring-4 ring-amber-100'
-                                    : 'border-gray-300 hover:border-amber-300 hover:shadow-sm'
+                                ? 'border-gray-900 ring-2 ring-gray-100'
+                                : 'border-gray-300 hover:border-gray-400 hover:shadow-sm'
                                 }`}
                         >
                             <span className="truncate font-medium text-gray-700">{selectedStyleName}</span>
@@ -259,12 +259,12 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
                                                 setIsStyleDropdownOpen(false);
                                             }}
                                             className={`w-full text-left px-4 py-2.5 text-sm flex items-center gap-2 transition-colors ${selectedStyle === style.id
-                                                    ? 'bg-amber-50 text-amber-900 font-bold'
-                                                    : 'text-gray-700 hover:bg-gray-50'
+                                                ? 'bg-gray-100 text-gray-900 font-bold'
+                                                : 'text-gray-700 hover:bg-gray-50'
                                                 }`}
                                         >
                                             <span className="truncate flex-1">{style.name}</span>
-                                            {selectedStyle === style.id && <Check size={14} className="text-amber-600" />}
+                                            {selectedStyle === style.id && <Check size={14} className="text-gray-900" />}
                                         </button>
                                     ))}
                                 </div>
@@ -280,9 +280,9 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
                     <div className="flex border-b border-gray-200 bg-white">
                         <button
                             onClick={() => setStep(1)}
-                            className={`flex-1 py-3 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${step === 1 ? 'text-amber-600 bg-amber-50' : 'text-gray-400 hover:bg-gray-50'}`}
+                            className={`flex-1 py-3 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${step === 1 ? 'text-gray-900 bg-gray-100' : 'text-gray-400 hover:bg-gray-50'}`}
                         >
-                            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === 1 ? 'bg-amber-500 text-white' : 'bg-gray-200 text-gray-500'}`}>1</div>
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${step === 1 ? 'bg-black text-white' : 'bg-gray-200 text-gray-500'}`}>1</div>
                             情緒
                         </button>
                         <div className="w-px bg-gray-100"></div>
@@ -311,7 +311,7 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
                             <div className="animate-in fade-in slide-in-from-right-4 duration-200">
                                 <div className="flex items-center justify-between mb-3">
                                     <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                                        <Smile size={16} className="text-amber-500" /> 選擇角色情緒
+                                        <Smile size={16} className="text-gray-900" /> 選擇角色情緒
                                     </h3>
                                     <span className="text-xs text-gray-400">點擊切換，未選則配合動作</span>
                                 </div>
@@ -322,13 +322,13 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
                                         <button
                                             onClick={() => toggleEmotion(SAME_AS_REF_ID)}
                                             className={`p-3 rounded-lg border text-xs font-bold text-left transition-all flex items-center gap-2 ${tempEmotion === SAME_AS_REF_ID
-                                                    ? 'border-amber-500 bg-amber-50 text-amber-900 ring-1 ring-amber-200'
-                                                    : 'border-gray-200 bg-white text-gray-600 hover:border-amber-300 hover:shadow-sm'
+                                                ? 'border-gray-900 bg-gray-100 text-gray-900 ring-1 ring-gray-200'
+                                                : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:shadow-sm'
                                                 }`}
                                         >
-                                            <Sparkles size={14} className={tempEmotion === SAME_AS_REF_ID ? 'text-amber-500' : 'text-gray-400'} />
+                                            <Sparkles size={14} className={tempEmotion === SAME_AS_REF_ID ? 'text-gray-900' : 'text-gray-400'} />
                                             與原圖一致
-                                            {tempEmotion === SAME_AS_REF_ID && <Check size={14} className="ml-auto text-amber-600" />}
+                                            {tempEmotion === SAME_AS_REF_ID && <Check size={14} className="ml-auto text-gray-900" />}
                                         </button>
                                     )}
 
@@ -336,13 +336,13 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
                                     <button
                                         onClick={() => toggleEmotion(CUSTOM_EMOTION_ID)}
                                         className={`p-3 rounded-lg border text-xs font-bold text-left transition-all flex items-center gap-2 ${isCustomEmotion
-                                                ? 'border-amber-500 bg-amber-50 text-amber-900 ring-1 ring-amber-200'
-                                                : 'border-gray-200 bg-white text-gray-600 hover:border-amber-300 hover:shadow-sm'
+                                            ? 'border-gray-900 bg-gray-100 text-gray-900 ring-1 ring-gray-200'
+                                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:shadow-sm'
                                             }`}
                                     >
-                                        <Edit2Icon size={14} className={isCustomEmotion ? 'text-amber-500' : 'text-gray-400'} />
+                                        <Edit2Icon size={14} className={isCustomEmotion ? 'text-gray-900' : 'text-gray-400'} />
                                         自訂情緒...
-                                        {isCustomEmotion && <Check size={14} className="ml-auto text-amber-600" />}
+                                        {isCustomEmotion && <Check size={14} className="ml-auto text-gray-900" />}
                                     </button>
 
                                     {/* Custom Input Area (Shows when custom emotion selected) */}
@@ -353,7 +353,7 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
                                                 value={customEmotionText}
                                                 onChange={(e) => setCustomEmotionText(e.target.value)}
                                                 placeholder="輸入情緒描述 (例如: 翻白眼、鄙視、崩潰)"
-                                                className="w-full p-2.5 text-sm border-2 border-amber-200 rounded-lg focus:border-amber-400 outline-none bg-white"
+                                                className="w-full p-2.5 text-sm border-2 border-gray-200 rounded-lg focus:border-gray-900 outline-none bg-white"
                                                 autoFocus
                                             />
                                         </div>
@@ -366,12 +366,12 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
                                                 key={e.id}
                                                 onClick={() => toggleEmotion(e.id)}
                                                 className={`p-3 rounded-lg border text-xs text-left transition-all flex items-center justify-between ${isSelected
-                                                        ? 'border-amber-500 bg-amber-50 text-amber-900 font-bold ring-1 ring-amber-200'
-                                                        : 'border-gray-200 bg-white text-gray-600 hover:border-amber-300 hover:shadow-sm'
+                                                    ? 'border-gray-900 bg-gray-100 text-gray-900 font-bold ring-1 ring-gray-200'
+                                                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:shadow-sm'
                                                     }`}
                                             >
                                                 <span className="truncate">{e.name}</span>
-                                                {isSelected && <Check size={14} className="text-amber-600 shrink-0" />}
+                                                {isSelected && <Check size={14} className="text-gray-900 shrink-0" />}
                                             </button>
                                         );
                                     })}
@@ -395,8 +395,8 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
                                         <button
                                             onClick={() => toggleAction(SAME_AS_REF_ID)}
                                             className={`p-3 rounded-lg border text-xs font-bold text-left transition-all flex items-center gap-2 ${tempAction === SAME_AS_REF_ID
-                                                    ? 'border-blue-500 bg-blue-50 text-blue-900 ring-1 ring-blue-200'
-                                                    : 'border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:shadow-sm'
+                                                ? 'border-blue-500 bg-blue-50 text-blue-900 ring-1 ring-blue-200'
+                                                : 'border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:shadow-sm'
                                                 }`}
                                         >
                                             <Sparkles size={14} className={tempAction === SAME_AS_REF_ID ? 'text-blue-500' : 'text-gray-400'} />
@@ -409,8 +409,8 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
                                     <button
                                         onClick={() => toggleAction(CUSTOM_ACTION_ID)}
                                         className={`p-3 rounded-lg border text-xs font-bold text-left transition-all flex items-center gap-2 ${isCustomAction
-                                                ? 'border-blue-500 bg-blue-50 text-blue-900 ring-1 ring-blue-200'
-                                                : 'border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:shadow-sm'
+                                            ? 'border-blue-500 bg-blue-50 text-blue-900 ring-1 ring-blue-200'
+                                            : 'border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:shadow-sm'
                                             }`}
                                     >
                                         <Edit2Icon size={14} className={isCustomAction ? 'text-blue-500' : 'text-gray-400'} />
@@ -439,8 +439,8 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
                                                 key={a.id}
                                                 onClick={() => toggleAction(a.id)}
                                                 className={`p-3 rounded-lg border text-xs text-left transition-all flex items-center justify-between ${isSelected
-                                                        ? 'border-blue-500 bg-blue-50 text-blue-900 font-bold ring-1 ring-blue-200'
-                                                        : 'border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:shadow-sm'
+                                                    ? 'border-blue-500 bg-blue-50 text-blue-900 font-bold ring-1 ring-blue-200'
+                                                    : 'border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:shadow-sm'
                                                     }`}
                                             >
                                                 <span className="truncate">{a.name}</span>
@@ -483,7 +483,7 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
                         {/* Summary Bar */}
                         <div className="flex items-center gap-2 text-xs mb-3 px-1">
                             <span className="text-gray-400 font-medium">預覽:</span>
-                            <span className={`px-2 py-0.5 rounded-md border ${tempEmotion === AUTO_MATCH_ID ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-amber-50 text-amber-700 border-amber-200 font-bold'}`}>
+                            <span className={`px-2 py-0.5 rounded-md border ${tempEmotion === AUTO_MATCH_ID ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-gray-900 text-white border-black font-bold'}`}>
                                 {summary.emoName}
                             </span>
                             <span className="text-gray-300">+</span>
@@ -546,7 +546,7 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
                                 <div key={item.id} className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-lg shadow-sm hover:border-amber-200 transition-colors group">
                                     <div className="flex flex-col gap-0.5 min-w-0">
                                         <div className="flex items-center gap-2 text-sm text-gray-800">
-                                            <span className={`font-bold ${item.emotionId === AUTO_MATCH_ID ? 'text-gray-400' : 'text-amber-600'}`}>{emoName}</span>
+                                            <span className={`font-bold ${item.emotionId === AUTO_MATCH_ID ? 'text-gray-400' : 'text-gray-900'}`}>{emoName}</span>
                                             <span className="text-gray-300">+</span>
                                             <span className={`font-bold ${item.actionId === AUTO_MATCH_ID ? 'text-gray-400' : 'text-blue-600'}`}>{actName}</span>
                                         </div>
@@ -586,7 +586,7 @@ export const ConfigSection: React.FC<ConfigSectionProps> = ({
                         value={themeText}
                         onChange={(e) => onThemeChange(e.target.value)}
                         placeholder="例如：聖誕節、職場厭世、萬聖節變裝..."
-                        className="w-full border border-gray-300 rounded-xl p-3 pl-10 text-sm focus:border-amber-400 focus:ring-4 focus:ring-amber-100 outline-none bg-white transition-all hover:border-amber-300"
+                        className="w-full border border-gray-300 rounded-xl p-3 pl-10 text-sm focus:border-gray-900 focus:ring-4 focus:ring-gray-100 outline-none bg-white transition-all hover:border-gray-400"
                     />
                 </div>
             </div>

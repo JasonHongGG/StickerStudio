@@ -169,14 +169,14 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
         {/* === Text Description Section === */}
         <div>
           <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
-            <Type size={16} className="text-amber-500" />
+            <Type size={16} className="text-gray-900" />
             角色文字描述 (選填)
           </label>
           <textarea
             value={characterPrompt}
             onChange={(e) => onPromptChange(e.target.value)}
             placeholder="例如：一隻戴著紅色圍巾的橘色虎斑貓，眼睛大大的，很可愛..."
-            className="w-full h-24 p-3 text-sm border border-gray-300 rounded-xl focus:border-amber-400 focus:ring-4 focus:ring-amber-100 outline-none resize-none bg-white placeholder-gray-400 transition-all"
+            className="w-full h-24 p-3 text-sm border border-gray-300 rounded-xl focus:border-gray-900 focus:ring-4 focus:ring-gray-100 outline-none resize-none bg-white placeholder-gray-400 transition-all"
           />
           <p className="text-xs text-gray-400 mt-1.5">
             * 若只上傳圖片：將完全依據圖片生成。<br />

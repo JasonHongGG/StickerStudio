@@ -205,14 +205,14 @@ const DraggableImageCard: React.FC<{
             {...attributes}
             {...listeners}
             className={`group relative bg-white rounded-xl overflow-hidden border transition-all duration-300 flex flex-col 
-                ${isOverlay ? 'shadow-2xl scale-75 rotate-2 z-50 cursor-grabbing ring-4 ring-amber-400/50 opacity-90' : 'hover:shadow-lg cursor-grab active:cursor-grabbing'}
+                ${isOverlay ? 'shadow-2xl scale-75 rotate-2 z-50 cursor-grabbing ring-4 ring-gray-200 opacity-90' : 'hover:shadow-lg cursor-grab active:cursor-grabbing'}
                 ${isDragging ? 'opacity-0' : 'opacity-100'}
-                ${isCompleted ? 'border-yellow-500' : 'border-gray-200'}
+                ${isCompleted ? 'border-gray-900' : 'border-gray-200'}
             `}
         >
             {/* Top Left Badges */}
             <div className="absolute top-2 left-2 flex flex-col gap-1 z-10 pointer-events-none">
-                {isMainSelected && <span className="bg-yellow-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm"><Star size={10} fill="currentColor" />主圖</span>}
+                {isMainSelected && <span className="bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm"><Star size={10} fill="currentColor" />主圖</span>}
                 {isLabelSelected && <span className="bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm"><Layers size={10} />標籤</span>}
             </div>
 
@@ -237,7 +237,7 @@ const DraggableImageCard: React.FC<{
                     }
                 }}
             >
-                {img.status === 'processing' && <div className="flex flex-col items-center text-yellow-600 animate-pulse"><RefreshCw className="animate-spin mb-2" size={24} /><span className="text-xs font-medium">生成中...</span></div>}
+                {img.status === 'processing' && <div className="flex flex-col items-center text-blue-600 animate-pulse"><RefreshCw className="animate-spin mb-2" size={24} /><span className="text-xs font-medium">生成中...</span></div>}
                 {img.status === 'pending' && <span className="text-gray-300 text-xs">等待中...</span>}
                 {img.status === 'failed' && <span className="text-red-400 text-xs text-center px-1">生成失敗</span>}
                 {isCompleted && img.originalImageBlob && (
@@ -267,7 +267,7 @@ const DraggableImageCard: React.FC<{
                 <button onClick={handleDownload} disabled={!isCompleted} className="aspect-square flex flex-col items-center justify-center gap-1 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-gray-200">
                     <Download size={20} /> <span className="text-xs font-medium">下載</span>
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); onUpdateOptions(img.id, { includeMain: !isMainSelected }) }} className={`aspect-square flex flex-col items-center justify-center gap-1 rounded-lg transition-all ${isMainSelected ? 'bg-yellow-500 text-white shadow-md shadow-yellow-200' : 'bg-white border border-yellow-500 text-yellow-600 hover:bg-yellow-50'}`}>
+                <button onClick={(e) => { e.stopPropagation(); onUpdateOptions(img.id, { includeMain: !isMainSelected }) }} className={`aspect-square flex flex-col items-center justify-center gap-1 rounded-lg transition-all ${isMainSelected ? 'bg-black text-white shadow-md' : 'bg-white border border-black text-black hover:bg-gray-50'}`}>
                     <Layout size={20} /> <span className="text-xs font-medium">主圖</span>
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); onUpdateOptions(img.id, { includeTab: !isLabelSelected }) }} className={`aspect-square flex flex-col items-center justify-center gap-1 rounded-lg transition-all ${isLabelSelected ? 'bg-blue-500 text-white shadow-md shadow-blue-200' : 'bg-white border border-blue-500 text-blue-600 hover:bg-blue-50'}`}>
@@ -352,13 +352,13 @@ const BatchGroup: React.FC<{
         <div
             ref={setNodeRef}
             className={`p-6 rounded-xl shadow-sm border transition-all duration-300
-                ${isOver ? 'bg-amber-50 border-amber-400 ring-4 ring-amber-100' : 'bg-white border-gray-100'}
+                ${isOver ? 'bg-gray-50 border-gray-400 ring-4 ring-gray-100' : 'bg-white border-gray-100'}
             `}
         >
             {/* Group Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 pb-4 border-b border-gray-100 gap-4">
                 <div className="flex items-center gap-3 flex-1 overflow-hidden">
-                    <FolderOpen className={`shrink-0 ${isOver ? 'text-amber-600 scale-110' : 'text-yellow-500'} transition-all`} size={24} />
+                    <FolderOpen className={`shrink-0 ${isOver ? 'text-gray-900 scale-110' : 'text-gray-400'} transition-all`} size={24} />
                     <div className="flex-1 min-w-0">
                         {isEditing ? (
                             <div className="flex items-center gap-2">
@@ -366,7 +366,7 @@ const BatchGroup: React.FC<{
                                     type="text"
                                     value={tempName}
                                     onChange={(e) => setTempName(e.target.value)}
-                                    className="border border-amber-300 rounded px-2 py-1 text-lg font-bold text-gray-800 outline-none focus:ring-4 focus:ring-amber-100 focus:border-amber-400 transition-all w-full max-w-sm"
+                                    className="border border-gray-300 rounded px-2 py-1 text-lg font-bold text-gray-800 outline-none focus:ring-4 focus:ring-gray-100 focus:border-gray-400 transition-all w-full max-w-sm"
                                     autoFocus
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') handleSaveName();
@@ -504,7 +504,7 @@ export const ResultSection: React.FC<ResultSectionProps> = ({
                     <h2 className="text-lg font-bold flex items-center gap-2 mb-4">
                         <span className="text-gray-800">貼圖歷史紀錄 (分組)</span>
                     </h2>
-                    <div className="bg-yellow-50 border border-yellow-100 p-3 rounded-lg flex items-center gap-2 text-sm text-yellow-800">
+                    <div className="bg-gray-50 border border-gray-200 p-3 rounded-lg flex items-center gap-2 text-sm text-gray-600">
                         <Database size={16} />
                         <span>您可以**長按並拖曳**貼圖來整理群組。圖片已自動儲存於瀏覽器資料庫中。</span>
                     </div>
