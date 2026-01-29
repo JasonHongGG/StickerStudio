@@ -1,6 +1,6 @@
-import { API_CONFIG, STORAGE_KEYS, SYSTEM_PROMPT } from '../constants';
+import { API_CONFIG, STORAGE_KEYS } from '../constants';
 import { IAIService, AIServiceType, GenerateStickerRequest } from "./AIService";
-import { constructStickerPrompt } from "./promptUtils";
+import { SYSTEM_PROMPT, constructStickerPrompt } from "./prompts";
 
 export class LocalAPIService implements IAIService {
     readonly name = 'Local API';
@@ -9,7 +9,6 @@ export class LocalAPIService implements IAIService {
     private getBaseUrl(): string {
         const host = localStorage.getItem(STORAGE_KEYS.localApiHost) || API_CONFIG.local.defaultHost;
         const port = localStorage.getItem(STORAGE_KEYS.localApiPort) || API_CONFIG.local.defaultPort.toString();
-        // Ensure protocol is present
         if (host.startsWith('http')) {
             return `${host}:${port}`;
         }
@@ -17,7 +16,6 @@ export class LocalAPIService implements IAIService {
     }
 
     validateConfig(): boolean {
-        // Local API is always "valid" config-wise as it relies on simple host/port defaults
         return true;
     }
 
@@ -27,19 +25,31 @@ export class LocalAPIService implements IAIService {
             const url = `${baseUrl}${API_CONFIG.local.endpoints.chat}`;
 
             const userPrompt = constructStickerPrompt(request);
-            // Inject System Prompt for Local API
             const finalPrompt = `${SYSTEM_PROMPT}\n\n${userPrompt}`;
 
-            // The Python server expects: { prompt, model, ... }
             const payload: any = {
                 prompt: finalPrompt,
                 model: API_CONFIG.local.modelName,
-                language: 'zh-TW', // Default language
+                language: 'zh-TW',
             };
 
+            // Collect all style sheet images
+            const allImages: string[] = [];
             if (request.imageBase64) {
-                // Send raw base64. Server side needs to handle this (e.g. save to temp file or decode)
-                payload.images = [request.imageBase64];
+                const base64Data = request.imageBase64.includes(',')
+                    ? request.imageBase64.split(',')[1]
+                    : request.imageBase64;
+                allImages.push(base64Data);
+            }
+            if (request.additionalImageBase64 && request.additionalImageBase64.length > 0) {
+                for (const imgBase64 of request.additionalImageBase64) {
+                    const base64Data = imgBase64.includes(',') ? imgBase64.split(',')[1] : imgBase64;
+                    allImages.push(base64Data);
+                }
+            }
+
+            if (allImages.length > 0) {
+                payload.images = allImages;
             }
 
             const response = await fetch(url, {
@@ -57,7 +67,6 @@ export class LocalAPIService implements IAIService {
 
             const data = await response.json();
 
-            // data format: { text: string, images: string[] }
             if (data.images && Array.isArray(data.images) && data.images.length > 0) {
                 const imageUrl = data.images[0];
                 return await this.fetchImageAsBase64(imageUrl);
@@ -72,18 +81,14 @@ export class LocalAPIService implements IAIService {
     }
 
     private async fetchImageAsBase64(stringData: string): Promise<string> {
-        // 1. If it's a Data URI (data:image/png;base64,....)
         if (stringData.startsWith('data:image')) {
             return stringData.split(',')[1];
         }
 
-        // 2. If it is likely a raw Base64 string (not a URL)
-        // Simple check: doesn't start with http/https and is reasonably long
         if (!stringData.startsWith('http')) {
             return stringData;
         }
 
-        // 3. If it is a URL, try to fetch it
         try {
             const response = await fetch(stringData);
             if (!response.ok) throw new Error(`Failed to download image from ${stringData}`);
@@ -93,7 +98,6 @@ export class LocalAPIService implements IAIService {
                 const reader = new FileReader();
                 reader.onload = () => {
                     const result = reader.result as string;
-                    // Remove "data:image/png;base64," prefix
                     const base64 = result.split(',')[1];
                     resolve(base64);
                 };

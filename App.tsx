@@ -3,17 +3,19 @@ import { UploadSection } from './components/UploadSection';
 import { ConfigSection } from './components/ConfigSection';
 import { ResultSection } from './components/ResultSection';
 import { SettingsModal } from './components/SettingsModal';
-import { GeneratedImage, StickerStyle, StickerPackInfo, StickerPlanItem } from './types';
+import { GeneratedImage, StickerStyle, StickerPackInfo, StickerPlanItem, ReferenceImage } from './types';
 import { STYLES, EMOTIONS, COMMON_ACTIONS, SAME_AS_REF_ID, AUTO_MATCH_ID, CUSTOM_ACTION_ID, CUSTOM_EMOTION_ID } from './constants';
 import { fileToBase64 } from './services/geminiService';
 import { AIServiceFactory } from './services/AIServiceFactory';
 import { removeBackground } from './services/imageProcessingService';
+import { composeStyleSheets } from './services/imageCompositor';
 import { saveImageRecord, getAllImages, deleteImageRecord, updateBatchNameInDB, updateImageBatchId } from './services/storageService';
+import { resolveEmotionPrompt, resolveActionPrompt } from './services/prompts';
 import { Sparkles, StopCircle, Palette, Settings } from 'lucide-react';
 
 const App: React.FC = () => {
   // --- State ---
-  const [sourceImage, setSourceImage] = useState<File | null>(null);
+  const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
   const [characterPrompt, setCharacterPrompt] = useState<string>('');
 
   // Config State
@@ -66,12 +68,26 @@ const App: React.FC = () => {
 
   // --- Handlers ---
 
-  const handleUpload = (file: File) => {
-    setSourceImage(file);
+  const handleAddImages = (files: FileList) => {
+    const newImages: ReferenceImage[] = Array.from(files).map(file => ({
+      id: `ref-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      file,
+      previewUrl: URL.createObjectURL(file)
+    }));
+    setReferenceImages(prev => [...prev, ...newImages]);
   };
 
-  const handleRemoveImage = () => {
-    setSourceImage(null);
+  const handleRemoveImage = (id: string) => {
+    setReferenceImages(prev => {
+      const toRemove = prev.find(img => img.id === id);
+      if (toRemove) URL.revokeObjectURL(toRemove.previewUrl);
+      return prev.filter(img => img.id !== id);
+    });
+  };
+
+  const handleClearAllImages = () => {
+    referenceImages.forEach(img => URL.revokeObjectURL(img.previewUrl));
+    setReferenceImages([]);
   };
 
   const handleAddToPlan = (item: StickerPlanItem) => {
@@ -91,7 +107,7 @@ const App: React.FC = () => {
 
   const processQueue = async (
     queue: GeneratedImage[],
-    base64Image: string | null,
+    styleSheets: string[],
     charDesc: string,
     style: StickerStyle,
     theme: string,
@@ -114,31 +130,15 @@ const App: React.FC = () => {
 
         const { emotion, action, caption } = item.planDetails;
 
-        // Emotion Prompt
-        let emotionPrompt = "";
-        if (emotion === SAME_AS_REF_ID || emotion === AUTO_MATCH_ID) {
-          emotionPrompt = ""; // Logic handled in geminiService by ID
-        } else if (emotion === CUSTOM_EMOTION_ID) {
-          // Custom text should be handled via ID check in geminiService or passed if stored.
-          // Currently simplified.
-        } else {
-          const emoObj = EMOTIONS.find(e => e.id === emotion);
-          emotionPrompt = emoObj ? emoObj.enName : emotion;
-        }
-
-        // Action Prompt
-        let actionPrompt = "";
-        if (action === SAME_AS_REF_ID || action === AUTO_MATCH_ID) {
-          actionPrompt = "";
-        } else {
-          const actObj = COMMON_ACTIONS.find(a => a.id === action);
-          actionPrompt = actObj ? actObj.enName : action;
-        }
+        // Use centralized prompt utilities
+        const emotionPrompt = resolveEmotionPrompt(emotion);
+        const actionPrompt = resolveActionPrompt(action);
 
         // 1. Generate via AI Service
         const aiService = AIServiceFactory.getCurrentService();
         const generatedBase64 = await aiService.generateSticker({
-          imageBase64: base64Image,
+          imageBase64: styleSheets.length > 0 ? styleSheets[0] : null,
+          additionalImageBase64: styleSheets.slice(1),
           characterDescription: charDesc,
           plan: {
             emotionPrompt,
@@ -185,7 +185,7 @@ const App: React.FC = () => {
   };
 
   const handleStartGeneration = async () => {
-    if (!sourceImage && !characterPrompt.trim()) {
+    if (referenceImages.length === 0 && !characterPrompt.trim()) {
       alert("請至少「上傳照片」或「輸入角色描述」其中一項");
       return;
     }
@@ -253,11 +253,9 @@ const App: React.FC = () => {
     setAbortController(controller);
 
     try {
-      let base64 = null;
-      if (sourceImage) {
-        base64 = await fileToBase64(sourceImage);
-      }
-      await processQueue(newImages, base64, characterPrompt, style, themeText, controller.signal);
+      // Compose style sheets from reference images
+      const styleSheets = await composeStyleSheets(referenceImages.map(r => r.file));
+      await processQueue(newImages, styleSheets, characterPrompt, style, themeText, controller.signal);
     } catch (e) {
       console.error("Batch processing error", e);
     } finally {
@@ -282,7 +280,7 @@ const App: React.FC = () => {
 
   const handleRegenerate = async (id: string, refinePrompt: string = '') => {
     // Check if we have source (either img or text)
-    if (!sourceImage && !characterPrompt) {
+    if (referenceImages.length === 0 && !characterPrompt) {
       alert("缺少原始素材（圖片或文字），無法重新生成。");
       return;
     }
@@ -295,29 +293,21 @@ const App: React.FC = () => {
     ));
 
     try {
-      let base64 = null;
-      if (sourceImage) {
-        base64 = await fileToBase64(sourceImage);
-      }
+      // Compose style sheets from reference images
+      const styleSheets = await composeStyleSheets(referenceImages.map(r => r.file));
 
       const style = STYLES.find(s => s.name === targetImage.styleName) || STYLES[0];
 
       const { emotion, action, caption } = targetImage.planDetails;
 
-      // Recover prompts
-      let emotionPrompt = "";
-      const emoObj = EMOTIONS.find(e => e.id === emotion);
-      if (emoObj) emotionPrompt = emoObj.enName;
-      else if (emotion !== SAME_AS_REF_ID && emotion !== AUTO_MATCH_ID) emotionPrompt = emotion;
-
-      let actionPrompt = "";
-      const actObj = COMMON_ACTIONS.find(a => a.id === action);
-      if (actObj) actionPrompt = actObj.enName;
-      else if (action !== SAME_AS_REF_ID && action !== AUTO_MATCH_ID) actionPrompt = action;
+      // Use centralized prompt utilities
+      const emotionPrompt = resolveEmotionPrompt(emotion);
+      const actionPrompt = resolveActionPrompt(action);
 
       const aiService = AIServiceFactory.getCurrentService();
       const generatedBase64 = await aiService.generateSticker({
-        imageBase64: base64,
+        imageBase64: styleSheets.length > 0 ? styleSheets[0] : null,
+        additionalImageBase64: styleSheets.slice(1),
         characterDescription: characterPrompt,
         plan: {
           emotionPrompt,
@@ -438,9 +428,10 @@ const App: React.FC = () => {
           <div className="w-full lg:w-[420px] flex-shrink-0 flex flex-col gap-6">
 
             <UploadSection
-              image={sourceImage}
-              onUpload={handleUpload}
-              onRemove={handleRemoveImage}
+              referenceImages={referenceImages}
+              onAddImages={handleAddImages}
+              onRemoveImage={handleRemoveImage}
+              onClearAllImages={handleClearAllImages}
               characterPrompt={characterPrompt}
               onPromptChange={setCharacterPrompt}
             />
@@ -460,7 +451,7 @@ const App: React.FC = () => {
               newPackName={newPackName}
               onNewPackNameChange={setNewPackName}
               // Source State
-              hasReferenceImage={!!sourceImage}
+              hasReferenceImage={referenceImages.length > 0}
             />
 
             {/* Action Bar */}
@@ -486,7 +477,7 @@ const App: React.FC = () => {
                 ) : (
                   <button
                     onClick={handleStartGeneration}
-                    disabled={(!sourceImage && !characterPrompt.trim()) || stickerPlan.length === 0}
+                    disabled={(referenceImages.length === 0 && !characterPrompt.trim()) || stickerPlan.length === 0}
                     className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold py-3.5 rounded-xl hover:from-amber-600 hover:to-orange-600 transition-all disabled:from-gray-300 disabled:to-gray-300 disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:shadow-amber-200/50 transform active:scale-[0.99]"
                   >
                     <Sparkles size={20} />

@@ -71,26 +71,3 @@ export const COMMON_ACTIONS: Action[] = [
   { id: 'pointing', name: '👉 指人 / 確認', enName: 'Pointing finger forward' },
   { id: 'stop', name: '🙅 打叉 / 拒絕', enName: 'Crossing arms in X shape, refusing' },
 ];
-
-export const SYSTEM_PROMPT = `
-You are an expert Sticker Artist.
-
-**CRITICAL RULES:**
-1. **Match Source Framing EXACTLY**:
-   - IF the Reference Image is **Half-Body**, output **Half-Body**.
-   - IF the Reference Image is **Full-Body**, output **Full-Body**.
-   - Do NOT invent legs or change proportions unless the Style (e.g. Chibi) explicitly demands it.
-
-2. **Character Identity**:
-   - Maintain the character's species, eye shape, markings, and key features perfectly.
-
-3. **Background**: Always Solid Green #00FF00.
-
-4. **Composition Logic**:
-   - **Expression**: Follows the user's specific instruction. If "Same as Reference", keep the face exactly as is.
-   - **Pose/Action**: Follows the user's specific instruction. If "Same as Reference", keep the body exactly as is.
-   - **Text**: Only add text if explicitly provided in the "Caption".
-
-5. **Style Consistency**:
-   - Apply the requested art style (e.g., Anime, 3D) while keeping the character recognizable.
-`;

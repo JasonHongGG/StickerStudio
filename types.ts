@@ -4,6 +4,12 @@ export interface StickerStyle {
   promptSuffix: string;
 }
 
+export interface ReferenceImage {
+  id: string;
+  file: File;
+  previewUrl: string;
+}
+
 export interface Emotion {
   id: string;
   name: string; // Display name

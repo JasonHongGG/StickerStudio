@@ -1,36 +1,40 @@
-import React, { useRef } from 'react';
-import { Upload, RefreshCw, Type, Image as ImageIcon, X, Trash2 } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Upload, Type, Image as ImageIcon, Trash2, X, Plus } from 'lucide-react';
+import { ReferenceImage } from '../types';
 
 interface UploadSectionProps {
-  image: File | null;
-  onUpload: (file: File) => void;
-  onRemove: () => void;
+  referenceImages: ReferenceImage[];
+  onAddImages: (files: FileList) => void;
+  onRemoveImage: (id: string) => void;
+  onClearAllImages: () => void;
   characterPrompt: string;
   onPromptChange: (text: string) => void;
 }
 
-export const UploadSection: React.FC<UploadSectionProps> = ({ 
-  image, 
-  onUpload, 
-  onRemove,
-  characterPrompt, 
-  onPromptChange 
+export const UploadSection: React.FC<UploadSectionProps> = ({
+  referenceImages,
+  onAddImages,
+  onRemoveImage,
+  onClearAllImages,
+  characterPrompt,
+  onPromptChange
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      onUpload(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      onAddImages(e.target.files);
+      if (inputRef.current) inputRef.current.value = '';
     }
   };
 
-  const handleRemoveClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering the file input click
-    onRemove();
-    // Reset file input so the same file can be selected again if needed
-    if (inputRef.current) {
-        inputRef.current.value = '';
-    }
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDraggingOver(true); };
+  const handleDragLeave = (e: React.DragEvent) => { e.preventDefault(); setIsDraggingOver(false); };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    if (e.dataTransfer.files?.length > 0) onAddImages(e.dataTransfer.files);
   };
 
   return (
@@ -41,86 +45,144 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
       </h2>
 
       <div className="space-y-4">
-        {/* Image Upload Area */}
+        {/* === Image Reference Section === */}
         <div>
-           <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
-              <ImageIcon size={16} className="text-blue-500" />
-              參考照片 (選填)
-           </label>
-            
-            {/* Hidden File Input */}
-            <input 
-                type="file" 
-                ref={inputRef} 
-                className="hidden" 
-                accept="image/png, image/jpeg, image/webp"
-                onChange={handleFileChange}
-            />
-
-            {!image ? (
-                <div 
-                onClick={() => inputRef.current?.click()}
-                className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors h-48"
+          <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+            <ImageIcon size={16} className="text-blue-500" />
+            參考照片 (選填)
+            {referenceImages.length > 0 && (
+              <div className="ml-auto flex items-center gap-2">
+                <span className="text-xs text-gray-400 font-normal">
+                  {referenceImages.length} 張
+                </span>
+                <button
+                  onClick={onClearAllImages}
+                  className="text-gray-300 hover:text-red-500 transition-colors p-0.5"
+                  title="清除全部"
                 >
-                <Upload className="w-10 h-10 text-gray-400 mb-2" />
-                <p className="text-gray-500 font-medium text-sm">點擊上傳照片</p>
-                <p className="text-gray-400 text-xs mt-1">人物、寵物或物品 (作為外觀參考)</p>
-                </div>
-            ) : (
-                <div 
-                    className="relative border border-gray-200 rounded-lg bg-gray-50 group overflow-hidden cursor-pointer h-48 flex items-center justify-center"
-                    onClick={() => inputRef.current?.click()}
-                >
-                    <img 
-                        src={URL.createObjectURL(image)} 
-                        alt="Uploaded" 
-                        className="w-full h-full object-contain"
-                    />
-                    
-                    {/* Hover Overlay for Change */}
-                    <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-[2px] z-10">
-                        <RefreshCw className="text-white w-8 h-8 mb-2 drop-shadow-lg" />
-                        <span className="text-white font-bold text-sm tracking-wide drop-shadow-md border border-white/50 px-3 py-1 rounded-full bg-white/10">
-                        更換照片
-                        </span>
-                    </div>
-
-                    {/* Delete Button (Transparent Glass Style) */}
-                    <button
-                        onClick={handleRemoveClick}
-                        className="absolute top-2 right-2 z-20 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 backdrop-blur-sm border border-white/30 bg-black/20 text-white/90 hover:bg-red-500/80 hover:border-red-400 hover:text-white shadow-sm"
-                        title="移除照片"
-                    >
-                        <Trash2 size={16} />
-                    </button>
-                </div>
+                  <Trash2 size={14} />
+                </button>
+              </div>
             )}
+          </label>
+
+          <input
+            type="file" ref={inputRef} className="hidden"
+            accept="image/png, image/jpeg, image/webp" multiple
+            onChange={handleFileChange}
+          />
+
+          {referenceImages.length === 0 ? (
+            /* ===== EMPTY STATE: Original Simple Design ===== */
+            <div
+              onClick={() => inputRef.current?.click()}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`
+                border-2 border-dashed rounded-lg p-6 
+                flex flex-col items-center justify-center 
+                cursor-pointer transition-colors h-48
+                ${isDraggingOver
+                  ? 'border-blue-400 bg-blue-50'
+                  : 'border-gray-300 hover:bg-gray-50'
+                }
+              `}
+            >
+              <Upload className="w-10 h-10 text-gray-400 mb-2" />
+              <p className="text-gray-500 font-medium text-sm">點擊上傳照片</p>
+              <p className="text-gray-400 text-xs mt-1">支援多張參考圖，AI 將學習角色的完整風格</p>
+            </div>
+          ) : (
+            /* ===== GALLERY STATE: Horizontal Scroll Cards ===== */
+            <div
+              className={`rounded-lg p-3 -m-3 transition-colors ${isDraggingOver ? 'bg-blue-50 ring-2 ring-blue-300 ring-dashed' : ''}`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+
+              {/* Horizontal Scrolling Gallery */}
+              <div className="relative -mx-6 px-6">
+                <div className="flex gap-3 overflow-x-auto pb-3 pt-2 scrollbar-thin scrollbar-thumb-gray-200">
+                  {referenceImages.map((img, index) => (
+                    <div
+                      key={img.id}
+                      className="relative flex-shrink-0 group"
+                    >
+                      {/* Card Container */}
+                      <div className="w-24 h-32 rounded-lg overflow-hidden bg-white border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200">
+                        <img
+                          src={img.previewUrl}
+                          alt={`參考圖 ${index + 1}`}
+                          className="w-full h-full object-contain bg-gray-50 transition-transform duration-200 hover:scale-[1.3]"
+                        />
+                      </div>
+
+                      {/* Index Label */}
+                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-white border border-gray-200 px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-500 shadow-sm">
+                        #{index + 1}
+                      </div>
+
+                      {/* Remove Button - positioned inside card area */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onRemoveImage(img.id); }}
+                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                      >
+                        <X size={10} strokeWidth={3} />
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Add More Card */}
+                  <div
+                    onClick={() => inputRef.current?.click()}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={`
+                      flex-shrink-0 w-24 h-32 rounded-lg
+                      border-2 border-dashed flex flex-col items-center justify-center
+                      cursor-pointer transition-all duration-200
+                      ${isDraggingOver
+                        ? 'border-blue-400 bg-blue-50'
+                        : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+                      }
+                    `}
+                  >
+                    <Plus size={20} className="text-gray-400 mb-1" />
+                    <span className="text-xs text-gray-400">新增</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Divider text */}
+        {/* === Divider === */}
         <div className="relative flex py-1 items-center">
-            <div className="flex-grow border-t border-gray-200"></div>
-            <span className="flex-shrink-0 mx-4 text-gray-400 text-xs">AND / OR</span>
-            <div className="flex-grow border-t border-gray-200"></div>
+          <div className="flex-grow border-t border-gray-200"></div>
+          <span className="flex-shrink-0 mx-4 text-gray-400 text-xs">AND / OR</span>
+          <div className="flex-grow border-t border-gray-200"></div>
         </div>
 
-        {/* Text Prompt Area */}
+        {/* === Text Description Section === */}
         <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
-                <Type size={16} className="text-amber-500" />
-                角色文字描述 (選填)
-            </label>
-            <textarea
-                value={characterPrompt}
-                onChange={(e) => onPromptChange(e.target.value)}
-                placeholder="例如：一隻戴著紅色圍巾的橘色虎斑貓，眼睛大大的，很可愛..."
-                className="w-full h-24 p-3 text-sm border border-gray-300 rounded-xl focus:border-amber-400 focus:ring-4 focus:ring-amber-100 outline-none resize-none bg-white placeholder-gray-400 transition-all"
-            />
-            <p className="text-xs text-gray-400 mt-1.5">
-                * 若只上傳圖片：將完全依據圖片生成。<br/>
-                * 若只輸入文字：將依據文字生成新角色。<br/>
-                * 若兩者皆有：將混合圖片特徵與文字描述。
-            </p>
+          <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+            <Type size={16} className="text-amber-500" />
+            角色文字描述 (選填)
+          </label>
+          <textarea
+            value={characterPrompt}
+            onChange={(e) => onPromptChange(e.target.value)}
+            placeholder="例如：一隻戴著紅色圍巾的橘色虎斑貓，眼睛大大的，很可愛..."
+            className="w-full h-24 p-3 text-sm border border-gray-300 rounded-xl focus:border-amber-400 focus:ring-4 focus:ring-amber-100 outline-none resize-none bg-white placeholder-gray-400 transition-all"
+          />
+          <p className="text-xs text-gray-400 mt-1.5">
+            * 若只上傳圖片：將完全依據圖片生成。<br />
+            * 若只輸入文字：將依據文字生成新角色。<br />
+            * 若兩者皆有：將混合圖片特徵與文字描述。
+          </p>
         </div>
       </div>
     </div>

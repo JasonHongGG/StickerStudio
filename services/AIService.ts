@@ -2,6 +2,7 @@ export type AIServiceType = 'gemini' | 'local';
 
 export interface GenerateStickerRequest {
     imageBase64: string | null;
+    additionalImageBase64?: string[];
     characterDescription: string;
     plan: {
         emotionPrompt: string;
