@@ -426,27 +426,29 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
             <div className="flex-1 bg-gray-50/30 relative flex flex-col overflow-hidden">
 
                 {/* Floating Toolbar (Downloads only) */}
-                <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white/80 backdrop-blur-md px-1.5 py-1.5 rounded-full shadow-lg border border-gray-200/50 z-30 transition-all hover:bg-white/95 hover:shadow-xl">
-                    <button
-                        onClick={() => selectedImage && handleDownloadSingle(selectedImage)}
-                        disabled={!selectedImage?.resultUrl}
-                        className="px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="下載此張"
-                    >
-                        <Download size={14} />
-                        下載目前
-                    </button>
-
-                    {images.some(img => img.status === 'success') && (
+                {selectedImage?.resultUrl && (
+                    <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white/80 backdrop-blur-md px-1.5 py-1.5 rounded-full shadow-lg border border-gray-200/50 z-30 transition-all hover:bg-white/95 hover:shadow-xl">
                         <button
-                            onClick={handleDownloadAll}
-                            className="flex items-center gap-2 px-3 py-1.5 bg-black text-white rounded-full hover:bg-gray-800 transition-colors shadow-sm ml-1 text-xs font-bold"
+                            onClick={() => selectedImage && handleDownloadSingle(selectedImage)}
+                            disabled={!selectedImage?.resultUrl}
+                            className="px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="下載此張"
                         >
                             <Download size={14} />
-                            下載全部
+                            下載目前
                         </button>
-                    )}
-                </div>
+
+                        {images.some(img => img.status === 'success') && (
+                            <button
+                                onClick={handleDownloadAll}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-black text-white rounded-full hover:bg-gray-800 transition-colors shadow-sm ml-1 text-xs font-bold"
+                            >
+                                <Download size={14} />
+                                下載全部
+                            </button>
+                        )}
+                    </div>
+                )}
 
                 {/* Canvas Area */}
                 <div className="flex-1 bg-[url('https://repo.sourcelib.xyz/checker-bg.png')] flex items-center justify-center relative group p-10 overflow-hidden select-none">
