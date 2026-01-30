@@ -12,12 +12,12 @@ import { removeBackground } from './services/imageProcessingService';
 import { composeStyleSheets } from './services/imageCompositor';
 import { saveImageRecord, getAllImages, deleteImageRecord, updateBatchNameInDB, updateImageBatchId } from './services/storageService';
 import { resolveEmotionPrompt, resolveActionPrompt } from './services/prompts';
-import { Sparkles, StopCircle, Palette, Settings, Wrench, ArrowLeft, Hammer, Plus } from 'lucide-react';
+import { Sparkles, StopCircle, Palette, Settings, Wrench, ArrowLeft, Plus, ChevronDown, LayoutGrid } from 'lucide-react';
 
 const App: React.FC = () => {
   // --- State ---
   // Page Navigation State
-  const [currentPage, setCurrentPage] = useState<'main' | 'tools' | 'bg-removal'>('main');
+  const [currentPage, setCurrentPage] = useState<'main' | 'bg-removal'>('main');
 
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
   const [characterPrompt, setCharacterPrompt] = useState<string>('');
@@ -33,6 +33,7 @@ const App: React.FC = () => {
 
   // App Settings State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isToolsOpen, setIsToolsOpen] = useState(false);
 
   // Generation State
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
@@ -405,47 +406,156 @@ const App: React.FC = () => {
       {/* 1. Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-[1800px] mx-auto px-4 lg:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentPage('main')}>
-            <div className="bg-black text-white p-1.5 rounded-lg shadow-sm">
-              <Palette size={20} />
-            </div>
-            <h1 className="text-xl font-bold text-gray-900 tracking-tight">AI Sticker Studio</h1>
-          </div>
 
-          <div className="flex items-center gap-2">
-            {/* DEBUG: Current Page State */}
-            <div className="hidden">{console.log('Current Page:', currentPage)}</div>
+          {/* --- Main Header Mode --- */}
+          {currentPage === 'main' ? (
+            <>
+              <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentPage('main')}>
+                <div className="bg-black text-white p-1.5 rounded-lg shadow-sm">
+                  <Palette size={20} />
+                </div>
+                <h1 className="text-xl font-bold text-gray-900 tracking-tight">AI Sticker Studio</h1>
+              </div>
 
-            {/* Tools Entrance Button */}
-            {currentPage === 'main' && (
-              <button
-                onClick={() => setCurrentPage('tools')}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white font-bold rounded-lg hover:bg-gray-800 transition-all shadow-sm active:scale-95"
-              >
-                <Wrench size={18} />
-                <span>工具集</span>
-              </button>
-            )}
+              <div className="flex items-center gap-2">
 
-            {/* Back to Home Button (when not on main) */}
-            {currentPage !== 'main' && (
-              <button
-                onClick={() => setCurrentPage('main')}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 font-bold rounded-full hover:bg-gray-200 hover:text-gray-900 transition-all"
-              >
-                <ArrowLeft size={18} />
-                <span>返回主頁</span>
-              </button>
-            )}
+                {/* Tools Dropdown (Main Style) */}
+                <div className="relative">
+                  <button
+                    onClick={() => setIsToolsOpen(!isToolsOpen)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 font-bold rounded-lg hover:bg-gray-200 transition-all shadow-sm active:scale-95"
+                  >
+                    <Wrench size={18} />
+                    <span>實用工具集</span>
+                    <ChevronDown size={16} className={`transition-transform duration-200 ${isToolsOpen ? 'rotate-180' : ''}`} />
+                  </button>
 
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="p-2 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded-full transition-all"
-              title="設定"
-            >
-              <Settings size={20} />
-            </button>
-          </div>
+                  {/* Dropdown Menu */}
+                  {isToolsOpen && (
+                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-200">
+                      <div className="px-3 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                        可用工具
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setCurrentPage('bg-removal');
+                          setIsToolsOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                      >
+                        <div className="bg-black/5 p-2 rounded-lg text-black">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                            <path d="M12 12l2 2 4-4"></path>
+                          </svg>
+                        </div>
+                        <div>
+                          <div className="font-bold text-gray-800 text-sm">批量去背工具</div>
+                          <div className="text-xs text-gray-500">自動移除背景</div>
+                        </div>
+                      </button>
+
+                      <div className="border-t border-gray-100 my-1"></div>
+
+                      <div className="px-4 py-3 flex items-center gap-3 opacity-50 cursor-not-allowed">
+                        <div className="bg-gray-100 p-2 rounded-lg text-gray-400">
+                          <Plus size={20} />
+                        </div>
+                        <div>
+                          <div className="font-bold text-gray-400 text-sm">更多工具開發中</div>
+                          <div className="text-xs text-gray-400">敬請期待</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="p-2 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded-full transition-all"
+                  title="設定"
+                >
+                  <Settings size={20} />
+                </button>
+              </div>
+            </>
+          ) : (
+            /* --- Tool Header Mode --- */
+            <>
+              {/* Left: Back | Title | Badge */}
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setCurrentPage('main')}
+                  className="p-2 -ml-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-all"
+                  title="返回主頁"
+                >
+                  <ArrowLeft size={20} />
+                </button>
+
+                <div className="h-6 w-px bg-gray-200"></div>
+
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg font-bold text-gray-900">批量去背工具</h1>
+                  <span className="bg-black text-white text-[10px] font-bold px-1.5 py-0.5 rounded leading-none">BETA</span>
+                </div>
+              </div>
+
+              {/* Right: Tools Switcher Only */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsToolsOpen(!isToolsOpen)}
+                  className="flex items-center gap-2 px-3 py-2 text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all"
+                >
+                  <LayoutGrid size={20} />
+                  <span className="font-medium text-sm">切換工具</span>
+                  <ChevronDown size={14} className={`transition-transform duration-200 ${isToolsOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Tool-specific Dropdown */}
+                {isToolsOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="px-3 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                      快速切換
+                    </div>
+                    <button
+                      onClick={() => {
+                        setCurrentPage('bg-removal');
+                        setIsToolsOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-3 bg-gray-50 flex items-center gap-3 transition-colors"
+                    >
+                      <div className="bg-black p-2 rounded-lg text-white shadow-sm">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                          <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                          <polyline points="21 15 16 10 5 21"></polyline>
+                          <path d="M12 12l2 2 4-4"></path>
+                        </svg>
+                      </div>
+                      <div>
+                        <div className="font-bold text-gray-900 text-sm">批量去背工具</div>
+                        <div className="text-xs text-green-600 font-medium">使用中</div>
+                      </div>
+                    </button>
+
+                    <div className="border-t border-gray-100 my-1"></div>
+
+                    <div className="px-4 py-3 flex items-center gap-3 opacity-50 cursor-not-allowed">
+                      <div className="bg-gray-100 p-2 rounded-lg text-gray-400">
+                        <Plus size={18} />
+                      </div>
+                      <div>
+                        <div className="font-bold text-gray-400 text-sm">更多工具開發中</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </header>
 
@@ -536,58 +646,12 @@ const App: React.FC = () => {
         )
       }
 
-      {/* Tools Page */}
-      {currentPage === 'tools' && (
-        <div className="max-w-[1800px] mx-auto px-4 lg:px-6 py-8 animate-in fade-in zoom-in-95 duration-300">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-              <div className="bg-gray-100 p-2 rounded-xl text-gray-900">
-                <Hammer size={32} />
-              </div>
-              實用工具集
-            </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Background Removal Tool Card */}
-              <div
-                onClick={() => setCurrentPage('bg-removal')}
-                className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 hover:shadow-xl hover:border-gray-300 hover:-translate-y-1 transition-all cursor-pointer group"
-              >
-                <div className="w-14 h-14 bg-black rounded-xl mb-4 flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform duration-300">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                    <polyline points="21 15 16 10 5 21"></polyline>
-                    <path d="M12 12l2 2 4-4"></path>
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-black transition-colors">批量去背工具</h3>
-                <p className="text-gray-500 mb-4 h-12">
-                  智慧偵測並移除背景，支援批量處理與即時預覽比較。
-                </p>
-                <div className="flex items-center text-black font-bold group-hover:translate-x-2 transition-transform">
-                  <span>開始使用</span>
-                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
-                </div>
-              </div>
-
-              {/* Coming Soon Card */}
-              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200 opacity-60 flex flex-col items-center justify-center text-center">
-                <div className="w-14 h-14 bg-gray-200 rounded-xl mb-4 flex items-center justify-center text-gray-400">
-                  <Plus size={32} />
-                </div>
-                <h3 className="text-lg font-bold text-gray-500 mb-2">更多工具開發中</h3>
-                <p className="text-sm text-gray-400">敬請期待</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Background Removal Tool Page */}
       {currentPage === 'bg-removal' && (
         <div className="max-w-[1800px] mx-auto px-4 lg:px-6 py-8">
-          <BackgroundRemovalTool onBack={() => setCurrentPage('tools')} />
+          <BackgroundRemovalTool />
         </div>
       )}
 

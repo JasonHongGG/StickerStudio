@@ -3,9 +3,7 @@ import { ArrowLeft, Upload, X, Download, Play, Check, AlertCircle, Image as Imag
 import { removeBackground } from '../services/imageProcessingService';
 import JSZip from 'jszip';
 
-interface BackgroundRemovalToolProps {
-    onBack: () => void;
-}
+interface BackgroundRemovalToolProps { }
 
 interface ImageItem {
     id: string;
@@ -16,7 +14,7 @@ interface ImageItem {
     originalSize?: { width: number, height: number };
 }
 
-export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = ({ onBack }) => {
+export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () => {
     // --- State ---
     const [images, setImages] = useState<ImageItem[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -187,36 +185,7 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = ({ on
     return (
         <div className="min-h-[calc(100vh-100px)] flex flex-col gap-6 animate-in fade-in duration-500">
 
-            {/* Header Bar */}
-            <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex items-center gap-4">
-                    <button
-                        onClick={onBack}
-                        className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 transition-colors"
-                    >
-                        <ArrowLeft size={20} />
-                    </button>
-                    <div>
-                        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                            批量去背工具
-                            <span className="text-xs font-normal text-white bg-black px-2 py-0.5 rounded-full">BETA</span>
-                        </h2>
-                        <p className="text-xs text-gray-500">自動移除圖片背景，支援批量處理</p>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    {images.some(img => img.status === 'success') && (
-                        <button
-                            onClick={handleDownloadAll}
-                            className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors shadow-sm text-sm font-medium"
-                        >
-                            <Download size={16} />
-                            下載全部 ({images.filter(img => img.status === 'success').length})
-                        </button>
-                    )}
-                </div>
-            </div>
+            {/* Header Removed */}
 
             <div className="flex flex-col lg:flex-row gap-6 h-[700px]">
                 {/* Left: Upload & List Area */}
@@ -343,15 +312,28 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = ({ on
                             </div>
                         </div>
 
-                        {selectedImage?.status === 'success' && (
-                            <button
-                                onClick={() => handleDownloadSingle(selectedImage)}
-                                className="flex items-center gap-2 text-green-600 hover:text-green-700 font-bold text-sm px-3 py-1.5 rounded-lg hover:bg-green-50 transition-colors"
-                            >
-                                <Download size={16} />
-                                下載此張
-                            </button>
-                        )}
+                        <div className="flex items-center gap-2">
+                            {images.some(img => img.status === 'success') && (
+                                <button
+                                    onClick={handleDownloadAll}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium"
+                                    title="下載全部處理完成圖片"
+                                >
+                                    <Download size={16} />
+                                    <span className="hidden sm:inline">下載全部 ({images.filter(img => img.status === 'success').length})</span>
+                                </button>
+                            )}
+
+                            {selectedImage?.status === 'success' && (
+                                <button
+                                    onClick={() => handleDownloadSingle(selectedImage)}
+                                    className="flex items-center gap-2 bg-black text-white hover:bg-gray-800 font-bold text-sm px-3 py-1.5 rounded-lg transition-colors shadow-sm"
+                                >
+                                    <Download size={16} />
+                                    <span className="hidden sm:inline">下載此張</span>
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Main Viewer */}
