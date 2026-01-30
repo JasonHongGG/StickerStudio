@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Upload, X, Download, Play, Check, AlertCircle, Trash2, ArrowRight, Plus, ChevronsLeft, ChevronsRight, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Upload, X, Download, Play, Check, AlertCircle, Trash2, ArrowRight, Plus, ChevronsLeft, ChevronsRight, Image as ImageIcon, Settings } from 'lucide-react';
 import { removeBackground } from '../services/imageProcessingService';
+import { removeBackgroundWithAI, checkComfyUIHealth } from '../services/bgRemovalApiClient';
 import JSZip from 'jszip';
 
 interface BackgroundRemovalToolProps { }
@@ -31,6 +32,14 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
 
+    // Processing mode: 'algorithm' (client-side) or 'ai' (ComfyUI)
+    const [processingMode, setProcessingMode] = useState<'algorithm' | 'ai'>(() => {
+        const saved = localStorage.getItem('bgRemovalMode');
+        return (saved === 'ai') ? 'ai' : 'algorithm';
+    });
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isAIAvailable, setIsAIAvailable] = useState<boolean | null>(null);
+
     // Auto-select first image when added
     useEffect(() => {
         if (images.length > 0 && !selectedImageId) {
@@ -39,6 +48,16 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
             setSelectedImageId(null);
         }
     }, [images, selectedImageId]);
+
+    // Save processing mode to localStorage
+    useEffect(() => {
+        localStorage.setItem('bgRemovalMode', processingMode);
+    }, [processingMode]);
+
+    // Check AI availability on mount
+    useEffect(() => {
+        checkComfyUIHealth().then(setIsAIAvailable);
+    }, []);
 
     // Reset slider when image changes or status changes
     const selectedImage = images.find(img => img.id === selectedImageId);
@@ -181,8 +200,16 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
 
             try {
                 const dataUrl = await fileToDataUrl(target.file);
-                // Using the existing service
-                const resultUrl = await removeBackground(dataUrl);
+                let resultUrl: string;
+
+                if (processingMode === 'ai') {
+                    // Use ComfyUI AI backend
+                    const resultBase64 = await removeBackgroundWithAI(dataUrl);
+                    resultUrl = `data:image/png;base64,${resultBase64}`;
+                } else {
+                    // Use client-side algorithm
+                    resultUrl = await removeBackground(dataUrl);
+                }
 
                 setImages(prev => prev.map(img => img.id === target.id ? {
                     ...img,
@@ -449,6 +476,64 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
                         )}
                     </div>
                 )}
+
+                {/* Settings Button (Top Right) */}
+                <div className="absolute top-6 right-6 z-30">
+                    <button
+                        onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                        className={`p-2.5 rounded-full transition-all shadow-lg border ${isSettingsOpen
+                            ? 'bg-black text-white border-black'
+                            : 'bg-white/80 backdrop-blur-md text-gray-700 border-gray-200/50 hover:bg-white hover:shadow-xl'}`}
+                        title="處理設定"
+                    >
+                        <Settings size={18} />
+                    </button>
+
+                    {/* Settings Popover */}
+                    {isSettingsOpen && (
+                        <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-3 px-4 animate-in fade-in zoom-in-95 duration-200">
+                            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+                                處理模式
+                            </div>
+
+                            <div className="space-y-2">
+                                <button
+                                    onClick={() => { setProcessingMode('algorithm'); setIsSettingsOpen(false); }}
+                                    className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 transition-colors ${processingMode === 'algorithm'
+                                        ? 'bg-black text-white'
+                                        : 'hover:bg-gray-50 text-gray-700'}`}
+                                >
+                                    <div className={`w-3 h-3 rounded-full border-2 ${processingMode === 'algorithm' ? 'bg-white border-white' : 'border-gray-300'}`} />
+                                    <div>
+                                        <div className="font-bold text-sm">演算法去背</div>
+                                        <div className={`text-xs ${processingMode === 'algorithm' ? 'text-white/70' : 'text-gray-400'}`}>瀏覽器端處理</div>
+                                    </div>
+                                </button>
+
+                                <button
+                                    onClick={() => { setProcessingMode('ai'); setIsSettingsOpen(false); }}
+                                    disabled={isAIAvailable === false}
+                                    className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 transition-colors ${processingMode === 'ai'
+                                        ? 'bg-black text-white'
+                                        : isAIAvailable === false
+                                            ? 'opacity-50 cursor-not-allowed text-gray-400'
+                                            : 'hover:bg-gray-50 text-gray-700'}`}
+                                >
+                                    <div className={`w-3 h-3 rounded-full border-2 ${processingMode === 'ai' ? 'bg-white border-white' : 'border-gray-300'}`} />
+                                    <div>
+                                        <div className="font-bold text-sm flex items-center gap-2">
+                                            AI 去背
+                                            {isAIAvailable === null && <span className="text-[10px] text-gray-400">(檢測中...)</span>}
+                                            {isAIAvailable === false && <span className="text-[10px] text-red-400">(離線)</span>}
+                                            {isAIAvailable === true && <span className="text-[10px] text-green-500">(可用)</span>}
+                                        </div>
+                                        <div className={`text-xs ${processingMode === 'ai' ? 'text-white/70' : 'text-gray-400'}`}>ComfyUI 伺服器處理</div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
 
                 {/* Canvas Area */}
                 <div className="flex-1 bg-[url('https://repo.sourcelib.xyz/checker-bg.png')] flex items-center justify-center relative group p-10 overflow-hidden select-none">

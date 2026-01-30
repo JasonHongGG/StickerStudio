@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import stickerRoutes from './routes/stickerRoutes.js';
+import bgRemovalRoutes from './routes/bgRemovalRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -21,6 +22,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Routes
 app.use('/api/sticker', stickerRoutes);
+app.use('/api/bg-removal', bgRemovalRoutes);
 
 // Root health check
 app.get('/', (_req, res) => {
@@ -31,6 +33,8 @@ app.get('/', (_req, res) => {
 app.listen(PORT, () => {
     console.log(`🚀 Backend server running on http://localhost:${PORT}`);
     console.log(`📍 API endpoints:`);
-    console.log(`   POST /api/sticker/generate - Generate sticker`);
-    console.log(`   GET  /api/sticker/health   - Health check`);
+    console.log(`   POST /api/sticker/generate    - Generate sticker`);
+    console.log(`   GET  /api/sticker/health      - Sticker health check`);
+    console.log(`   POST /api/bg-removal/ai       - AI background removal`);
+    console.log(`   GET  /api/bg-removal/health   - ComfyUI health check`);
 });
