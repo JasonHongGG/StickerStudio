@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Upload, X, Download, Play, Check, AlertCircle, Image as ImageIcon, Trash2, ArrowRight, Plus, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { ArrowLeft, Upload, X, Download, Play, Check, AlertCircle, Trash2, ArrowRight, Plus, ChevronsLeft, ChevronsRight, Image as ImageIcon } from 'lucide-react';
 import { removeBackground } from '../services/imageProcessingService';
 import JSZip from 'jszip';
 
@@ -122,7 +122,12 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
     };
 
     const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
-    const handleDragLeave = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); };
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setIsDragging(false);
+        }
+    };
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         setIsDragging(false);
@@ -258,123 +263,136 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
             {/* --- Left Panel: Structured Sidebar --- */}
             <div className="w-full lg:w-80 flex-shrink-0 border-r border-gray-100 bg-white flex flex-col z-10 font-sans">
 
-                {/* 1. Header & Upload Zone (Fixed Top) */}
-                <div className="flex-shrink-0 p-5 border-b border-gray-100 bg-white z-20">
-                    <div
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                        onClick={() => fileInputRef.current?.click()}
-                        className={`
-                            group flex flex-col items-center justify-center py-6 border border-dashed rounded-xl cursor-pointer transition-all relative overflow-hidden
-                            ${isDragging ? 'border-black bg-gray-50' : 'border-gray-300 hover:border-black hover:bg-gray-50'}
-                        `}
-                    >
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            className="hidden"
-                            multiple
-                            accept="image/png, image/jpeg, image/webp"
-                            onChange={handleFileSelect}
-                        />
-                        <div className="relative z-10 flex flex-col items-center gap-2">
-                            <div className={`p-2 rounded-full transition-colors ${isDragging ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 group-hover:bg-black group-hover:text-white'}`}>
-                                <Upload size={18} />
-                            </div>
-                            <span className="text-xs font-medium text-gray-500">拖放或點擊上傳</span>
-                        </div>
-                    </div>
-                </div>
+                {/* 1. Dynamic Content Area */}
+                <div className="flex-1 flex flex-col min-h-0 relative">
+                    {/* HIDDEN INPUT (Shared) */}
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        multiple
+                        accept="image/png, image/jpeg, image/webp"
+                        onChange={handleFileSelect}
+                    />
 
-                {/* 2. Scrollable Queue List (Flex Middle) */}
-                <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent flex flex-col">
-                    {/* Sticky List Header */}
-                    {images.length > 0 && (
-                        <div className="sticky top-0 bg-white/95 backdrop-blur-sm px-5 py-2 border-b border-gray-50 flex items-center justify-between z-10 shadow-sm">
-                            <span className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">
-                                Queue ({images.length})
-                            </span>
-                            <div className="flex items-center gap-1">
-                                <button
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="p-1 text-gray-400 hover:text-black hover:bg-gray-100 rounded transition-all"
-                                    title="Add New"
-                                >
-                                    <Plus size={14} />
-                                </button>
-                                <button
-                                    onClick={handleClearAll}
-                                    disabled={isProcessing}
-                                    className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all disabled:opacity-50"
-                                    title="Clear All"
-                                >
-                                    <Trash2 size={14} />
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* List Content */}
-                    <div className="p-3 space-y-2 flex-1">
-                        {images.map((img) => (
+                    {images.length === 0 ? (
+                        /* MODE A: EMPTY STATE (Big Upload Area) */
+                        <div className="flex-1 flex flex-col p-5">
+                            <div className="text-xs font-bold text-gray-900 tracking-wider mb-4">SOURCE FILES</div>
                             <div
-                                key={img.id}
-                                onClick={() => handleSelectImage(img.id)}
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                                onClick={() => fileInputRef.current?.click()}
                                 className={`
-                                    group relative flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 border
-                                    ${selectedImageId === img.id ? 'bg-gray-900 border-gray-900 shadow-md z-0' : 'bg-white border-transparent hover:bg-gray-50'}
+                                    flex-1 flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-2xl cursor-pointer transition-all gap-4
+                                    ${isDragging ? 'border-black bg-gray-50 scale-[0.99]' : 'border-gray-200 hover:border-black hover:bg-gray-50'}
                                 `}
                             >
-                                <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0 relative">
-                                    <img src={img.previewUrl} className="w-full h-full object-cover" />
-                                    {img.status === 'success' && (
-                                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center backdrop-blur-[1px]">
-                                            <Check size={12} className="text-white" strokeWidth={3} />
+                                <div className={`p-4 rounded-full transition-colors ${isDragging ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 group-hover:bg-black group-hover:text-white'}`}>
+                                    <Upload size={24} />
+                                </div>
+                                <div className="text-center">
+                                    <p className="font-bold text-gray-900 mb-1">Upload Images</p>
+                                    <span className="text-xs font-medium text-gray-500">Drag & drop or click to browse</span>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        /* MODE B: POPULATED STATE */
+                        <>
+                            {/* Queue Header */}
+                            <div className="flex-shrink-0 px-5 py-4 border-b border-gray-100 bg-white flex items-center justify-between z-10 shadow-sm">
+                                <span className="text-xs font-bold text-gray-900 tracking-wider">
+                                    QUEUE ({images.length})
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="p-1.5 text-gray-500 hover:text-white hover:bg-black rounded-lg transition-all"
+                                        title="Add Images"
+                                    >
+                                        <Plus size={16} />
+                                    </button>
+                                    <div className="w-px h-4 bg-gray-200 mx-1"></div>
+                                    <button
+                                        onClick={handleClearAll}
+                                        disabled={isProcessing}
+                                        className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
+                                        title="Clear All"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Scrollable Queue List */}
+                            <div
+                                className={`flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent p-3 space-y-2 relative transition-colors ${isDragging ? 'bg-blue-50/50' : ''}`}
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                            >
+                                {isDragging && (
+                                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-blue-500/10 backdrop-blur-[2px] border-2 border-dashed border-blue-500 rounded-xl m-2 pointer-events-none">
+                                        <div className="bg-white px-4 py-2 rounded-full shadow-lg text-blue-600 font-bold text-sm flex items-center gap-2">
+                                            <Upload size={16} />
+                                            <span>Drop to Add Images</span>
                                         </div>
-                                    )}
-                                </div>
-
-                                <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                                    <p className={`text-xs font-bold truncate ${selectedImageId === img.id ? 'text-white' : 'text-gray-900'}`}>
-                                        {img.file.name}
-                                    </p>
-                                    <div className="flex items-center gap-1.5 h-3">
-                                        {/* Status Text */}
-                                        <span className={`text-[10px] font-medium leading-none ${selectedImageId === img.id ? 'text-gray-400' : 'text-gray-500'}`}>
-                                            {img.status === 'idle' && 'Waiting'}
-                                            {img.status === 'processing' && 'Processing...'}
-                                            {img.status === 'success' && 'Ready'}
-                                            {img.status === 'error' && 'Failed'}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Hover Remove Button */}
-                                <button
-                                    onClick={(e) => handleRemoveImage(img.id, e)}
-                                    className={`opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full ${selectedImageId === img.id ? 'text-gray-400 hover:text-white hover:bg-white/20' : 'text-gray-300 hover:text-red-500 hover:bg-red-50'}`}
-                                >
-                                    <X size={14} />
-                                </button>
-
-                                {/* Processing Indicator Overrides all icons if strictly processing */}
-                                {img.status === 'processing' && (
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                        <div className="w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
                                     </div>
                                 )}
-                            </div>
-                        ))}
+                                {images.map((img) => (
+                                    <div
+                                        key={img.id}
+                                        onClick={() => handleSelectImage(img.id)}
+                                        className={`
+                                            group relative flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 border
+                                            ${selectedImageId === img.id ? 'bg-gray-900 border-gray-900 shadow-md z-0' : 'bg-white border-transparent hover:bg-gray-50'}
+                                        `}
+                                    >
+                                        <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0 relative">
+                                            <img src={img.previewUrl} className="w-full h-full object-cover" />
+                                            {img.status === 'success' && (
+                                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center backdrop-blur-[1px]">
+                                                    <Check size={12} className="text-white" strokeWidth={3} />
+                                                </div>
+                                            )}
+                                        </div>
 
-                        {/* Empty State in List */}
-                        {images.length === 0 && (
-                            <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-gray-300 gap-2 opacity-60">
-                                <ImageIcon size={32} />
-                                <p className="text-xs">No images in queue</p>
+                                        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                                            <p className={`text-xs font-bold truncate ${selectedImageId === img.id ? 'text-white' : 'text-gray-900'}`}>
+                                                {img.file.name}
+                                            </p>
+                                            <div className="flex items-center gap-1.5 h-3">
+                                                {/* Status Text */}
+                                                <span className={`text-[10px] font-medium leading-none ${selectedImageId === img.id ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                    {img.status === 'idle' && 'Waiting'}
+                                                    {img.status === 'processing' && 'Processing...'}
+                                                    {img.status === 'success' && 'Ready'}
+                                                    {img.status === 'error' && 'Failed'}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Hover Remove Button */}
+                                        <button
+                                            onClick={(e) => handleRemoveImage(img.id, e)}
+                                            className={`opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full ${selectedImageId === img.id ? 'text-gray-400 hover:text-white hover:bg-white/20' : 'text-gray-300 hover:text-red-500 hover:bg-red-50'}`}
+                                        >
+                                            <X size={14} />
+                                        </button>
+
+                                        {/* Processing Indicator Overrides all icons if strictly processing */}
+                                        {img.status === 'processing' && (
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                <div className="w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
-                        )}
-                    </div>
+                        </>
+                    )}
                 </div>
 
                 {/* 3. Action Footer (Fixed Bottom) */}

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Upload, X, Download, Check, Image as ImageIcon, Trash2, ArrowRight, Plus, Scan, Lock, Archive } from 'lucide-react';
+import { ArrowLeft, Upload, X, Download, Check, Trash2, ArrowRight, Plus, Scan, Lock, Archive } from 'lucide-react';
 import JSZip from 'jszip';
 
 interface ImageCropToolProps { }
@@ -104,7 +104,13 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
     };
 
     const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragOver(true); };
-    const handleDragLeave = (e: React.DragEvent) => { e.preventDefault(); setIsDragOver(false); };
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        // Prevent flickering: Only disable if we actually leave the container (not entering a child)
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setIsDragOver(false);
+        }
+    };
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         setIsDragOver(false);
@@ -363,51 +369,137 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
             {/* --- Left Panel: Sidebar --- */}
             <div className="w-full lg:w-80 flex-shrink-0 border-r border-gray-100 bg-white flex flex-col z-10 font-sans">
 
-                {/* 1. Header & Upload */}
-                <div className="flex-shrink-0 p-5 border-b border-gray-100 bg-white z-20">
-                    <div className="flex justify-between items-center mb-4">
-                        <div className="text-xs font-bold text-gray-900 tracking-wider">SOURCE FILES</div>
-                    </div>
+                {/* 1. Dynamic Content Area */}
+                <div className="flex-1 flex flex-col min-h-0 relative">
+                    {/* HIDDEN INPUT (Shared) */}
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        multiple
+                        accept="image/png, image/jpeg, image/webp"
+                        onChange={handleFileSelect}
+                    />
 
-                    <div
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                        onClick={() => fileInputRef.current?.click()}
-                        className={`
-                            group flex flex-col items-center justify-center py-6 border border-dashed rounded-xl cursor-pointer transition-all relative overflow-hidden
-                            ${isDragOver ? 'border-black bg-gray-50' : 'border-gray-300 hover:border-black hover:bg-gray-50'}
-                        `}
-                    >
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            className="hidden"
-                            multiple
-                            accept="image/png, image/jpeg, image/webp"
-                            onChange={handleFileSelect}
-                        />
-                        <div className="relative z-10 flex flex-col items-center gap-2">
-                            <div className={`p-2 rounded-full transition-colors ${isDragOver ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 group-hover:bg-black group-hover:text-white'}`}>
-                                <Upload size={18} />
+                    {images.length === 0 ? (
+                        /* MODE A: EMPTY STATE (Big Upload Area) */
+                        <div className="flex-1 flex flex-col p-5">
+                            <div
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                                onClick={() => fileInputRef.current?.click()}
+                                className={`
+                                    flex-1 flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-2xl cursor-pointer transition-all gap-4
+                                    ${isDragOver ? 'border-black bg-gray-50 scale-[0.99]' : 'border-gray-200 hover:border-black hover:bg-gray-50'}
+                                `}
+                            >
+                                <div className={`p-4 rounded-full transition-colors ${isDragOver ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 group-hover:bg-black group-hover:text-white'}`}>
+                                    <Upload size={24} />
+                                </div>
+                                <div className="text-center">
+                                    <p className="font-bold text-gray-900 mb-1">Upload Images</p>
+                                    <span className="text-xs font-medium text-gray-500">Drag & drop or click to browse</span>
+                                </div>
                             </div>
-                            <span className="text-xs font-medium text-gray-500">拖放或點擊上傳</span>
                         </div>
-                    </div>
+                    ) : (
+                        /* MODE B: POPULATED STATE (Queue Header + List) */
+                        <>
+                            {/* Queue Header */}
+                            <div className="flex-shrink-0 px-5 py-4 border-b border-gray-100 bg-white flex items-center justify-between z-10 shadow-sm">
+                                <span className="text-xs font-bold text-gray-900 tracking-wider">
+                                    QUEUE ({images.length})
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="p-1.5 text-gray-500 hover:text-white hover:bg-black rounded-lg transition-all"
+                                        title="Add Images"
+                                    >
+                                        <Plus size={16} />
+                                    </button>
+                                    <div className="w-px h-4 bg-gray-200 mx-1"></div>
+                                    <button
+                                        onClick={handleClearAll}
+                                        className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                        title="Clear All"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Scrollable Queue List */}
+                            <div
+                                className={`flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent p-3 space-y-2 relative transition-colors ${isDragOver ? 'bg-blue-50/50' : ''}`}
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                            >
+                                {isDragOver && (
+                                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-blue-500/10 backdrop-blur-[2px] border-2 border-dashed border-blue-500 rounded-xl m-2 pointer-events-none">
+                                        <div className="bg-white px-4 py-2 rounded-full shadow-lg text-blue-600 font-bold text-sm flex items-center gap-2">
+                                            <Upload size={16} />
+                                            <span>Drop to Add Images</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {images.map((img) => (
+                                    <div
+                                        key={img.id}
+                                        onClick={() => handleSelectImage(img.id)}
+                                        className={`
+                                            group relative flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 border
+                                            ${selectedImageId === img.id ? 'bg-gray-900 border-gray-900 shadow-md z-0' : 'bg-white border-transparent hover:bg-gray-50'}
+                                            ${img.locked ? 'ring-2 ring-gray-200 ring-offset-1' : ''} 
+                                        `}
+                                    >
+                                        <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0 relative">
+                                            <img src={img.previewUrl} className="w-full h-full object-cover" />
+                                            {img.status === 'success' && !img.locked && (
+                                                <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center backdrop-blur-[1px]">
+                                                    <Check size={12} className="text-white" strokeWidth={3} />
+                                                </div>
+                                            )}
+                                            {img.locked && (
+                                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-[1px]">
+                                                    <Lock size={12} className="text-white" strokeWidth={3} />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className={`text-xs font-bold truncate ${selectedImageId === img.id ? 'text-white' : 'text-gray-900'}`}>
+                                                {img.file.name}
+                                            </p>
+                                            <span className={`text-[10px] font-medium leading-none ${selectedImageId === img.id ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                {img.locked ? 'Confirmed' : (img.status === 'idle' ? 'Ready to Crop' : 'Cropped')}
+                                            </span>
+                                        </div>
+                                        <button
+                                            onClick={(e) => handleRemoveImage(img.id, e)}
+                                            className={`opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full ${selectedImageId === img.id ? 'text-gray-400 hover:text-white hover:bg-white/20' : 'text-gray-300 hover:text-red-500 hover:bg-red-50'}`}
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    )}
                 </div>
 
-                {/* 2. Config & Queue */}
-                <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent flex flex-col">
-
+                {/* 3. Action Footer */}
+                <div className="flex-shrink-0 p-5 border-t border-gray-100 bg-gray-50/50 z-20 flex flex-col gap-4">
                     {/* Crop Config */}
-                    <div className="p-5 border-b border-gray-100 flex gap-3">
+                    <div className="flex gap-3">
                         <div className="flex-1">
                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Width</label>
                             <input
                                 type="number"
                                 value={cropWidth}
                                 onChange={(e) => setCropWidth(Number(e.target.value))}
-                                className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:border-black transition-colors"
+                                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:border-black transition-colors"
                             />
                         </div>
                         <div className="flex-1">
@@ -416,88 +508,10 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
                                 type="number"
                                 value={cropHeight}
                                 onChange={(e) => setCropHeight(Number(e.target.value))}
-                                className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:border-black transition-colors"
+                                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-900 focus:outline-none focus:border-black transition-colors"
                             />
                         </div>
                     </div>
-
-                    {/* Queue Header */}
-                    {images.length > 0 && (
-                        <div className="sticky top-0 bg-white/95 backdrop-blur-sm px-5 py-2 border-b border-gray-50 flex items-center justify-between z-10 shadow-sm">
-                            <span className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">
-                                Queue ({images.length})
-                            </span>
-                            <div className="flex items-center gap-1">
-                                <button
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="p-1 text-gray-400 hover:text-black hover:bg-gray-100 rounded transition-all"
-                                    title="Add New"
-                                >
-                                    <Plus size={14} />
-                                </button>
-                                <button
-                                    onClick={handleClearAll}
-                                    className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all"
-                                    title="Clear All"
-                                >
-                                    <Trash2 size={14} />
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Queue List */}
-                    <div className="p-3 space-y-2 flex-1">
-                        {images.map((img) => (
-                            <div
-                                key={img.id}
-                                onClick={() => handleSelectImage(img.id)}
-                                className={`
-                                    group relative flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 border
-                                    ${selectedImageId === img.id ? 'bg-gray-900 border-gray-900 shadow-md z-0' : 'bg-white border-transparent hover:bg-gray-50'}
-                                    ${img.locked ? 'ring-2 ring-gray-200 ring-offset-1' : ''} 
-                                `}
-                            >
-                                <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0 relative">
-                                    <img src={img.previewUrl} className="w-full h-full object-cover" />
-                                    {img.status === 'success' && !img.locked && (
-                                        <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center backdrop-blur-[1px]">
-                                            <Check size={12} className="text-white" strokeWidth={3} />
-                                        </div>
-                                    )}
-                                    {img.locked && (
-                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-[1px]">
-                                            <Lock size={12} className="text-white" strokeWidth={3} />
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className={`text-xs font-bold truncate ${selectedImageId === img.id ? 'text-white' : 'text-gray-900'}`}>
-                                        {img.file.name}
-                                    </p>
-                                    <span className={`text-[10px] font-medium leading-none ${selectedImageId === img.id ? 'text-gray-400' : 'text-gray-500'}`}>
-                                        {img.locked ? 'Confirmed' : (img.status === 'idle' ? 'Ready to Crop' : 'Cropped')}
-                                    </span>
-                                </div>
-                                <button
-                                    onClick={(e) => handleRemoveImage(img.id, e)}
-                                    className={`opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full ${selectedImageId === img.id ? 'text-gray-400 hover:text-white hover:bg-white/20' : 'text-gray-300 hover:text-red-500 hover:bg-red-50'}`}
-                                >
-                                    <X size={14} />
-                                </button>
-                            </div>
-                        ))}
-                        {images.length === 0 && (
-                            <div className="h-full min-h-[100px] flex flex-col items-center justify-center text-gray-300 gap-2 opacity-60">
-                                <ImageIcon size={32} />
-                                <p className="text-xs">No images</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* 3. Action Footer */}
-                <div className="flex-shrink-0 p-5 border-t border-gray-100 bg-gray-50/50 z-20">
                     <button
                         onClick={handleDownloadAll}
                         disabled={images.length === 0}
@@ -525,14 +539,14 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
                             {/* Nav Buttons */}
                             <button
                                 onClick={(e) => { e.stopPropagation(); handlePrevImage(); }}
-                                className="absolute left-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 active:scale-95 border border-white/10 z-50 pointer-events-auto"
+                                className="absolute left-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 active:scale-95 border border-white/10 z-30 pointer-events-auto"
                                 disabled={images.indexOf(selectedImage) === 0}
                             >
                                 <ArrowLeft size={24} />
                             </button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); handleNextImage(); }}
-                                className="absolute right-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 active:scale-95 border border-white/10 z-50 pointer-events-auto"
+                                className="absolute right-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 active:scale-95 border border-white/10 z-30 pointer-events-auto"
                                 disabled={images.indexOf(selectedImage) === images.length - 1}
                             >
                                 <ArrowRight size={24} />
@@ -551,7 +565,7 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
                             />
 
                             {/* Top Right Actions */}
-                            <div className="absolute top-6 right-6 flex items-center gap-3 z-50">
+                            <div className="absolute top-6 right-6 flex items-center gap-3 z-30">
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleToggleLock(); }}
                                     className={`p-3 rounded-full backdrop-blur-md transition-all shadow-lg border ${selectedImage.locked

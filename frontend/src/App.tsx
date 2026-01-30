@@ -405,7 +405,7 @@ const App: React.FC = () => {
     <div className={`bg-gray-50 font-sans ${currentPage !== 'main' ? 'h-screen overflow-hidden flex flex-col' : 'min-h-screen'}`}>
 
       {/* 1. Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-[60] shadow-sm">
         <div className="max-w-[1800px] mx-auto px-4 lg:px-6 h-16 flex items-center justify-between">
 
           {/* --- Main Header Mode --- */}
@@ -444,7 +444,7 @@ const App: React.FC = () => {
                         }}
                         className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors"
                       >
-                        <div className="bg-black/5 p-2 rounded-lg text-black">
+                        <div className="bg-white border border-gray-200 p-2 rounded-lg text-gray-900">
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                             <circle cx="8.5" cy="8.5" r="1.5"></circle>
@@ -455,6 +455,22 @@ const App: React.FC = () => {
                         <div>
                           <div className="font-bold text-gray-800 text-sm">批量去背工具</div>
                           <div className="text-xs text-gray-500">自動移除背景</div>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setCurrentPage('image-crop');
+                          setIsToolsOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                      >
+                        <div className="bg-white border border-gray-200 p-2 rounded-lg text-gray-900">
+                          <Crop size={20} />
+                        </div>
+                        <div>
+                          <div className="font-bold text-gray-800 text-sm">圖片裁切工具</div>
+                          <div className="text-xs text-gray-500">批量裁切圖片</div>
                         </div>
                       </button>
 
@@ -529,7 +545,7 @@ const App: React.FC = () => {
                       }}
                       className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors"
                     >
-                      <div className={`p-2 rounded-lg shadow-sm ${currentPage === 'bg-removal' ? 'bg-black text-white' : 'bg-white text-gray-900 border border-gray-100'}`}>
+                      <div className="bg-white border border-gray-200 p-2 rounded-lg text-gray-900 text-black">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                           <circle cx="8.5" cy="8.5" r="1.5"></circle>
@@ -552,7 +568,7 @@ const App: React.FC = () => {
                       }}
                       className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors"
                     >
-                      <div className={`p-2 rounded-lg shadow-sm ${currentPage === 'image-crop' ? 'bg-black text-white' : 'bg-white text-gray-900 border border-gray-100'}`}>
+                      <div className="bg-white border border-gray-200 p-2 rounded-lg text-gray-900 text-black">
                         <Crop size={18} />
                       </div>
                       <div>
