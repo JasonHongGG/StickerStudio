@@ -423,7 +423,19 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
                 </div>
 
                 {/* 3. Action Footer (Fixed Bottom) */}
-                <div className="flex-shrink-0 p-5 border-t border-gray-100 bg-gray-50/50 z-20">
+                <div className="flex-shrink-0 p-5 border-t border-gray-100 bg-gray-50/50 z-20 space-y-3">
+                    {/* Download All Button - only show when there are successful results */}
+                    {images.some(img => img.status === 'success') && (
+                        <button
+                            onClick={handleDownloadAll}
+                            className="w-full bg-white border border-gray-200 text-gray-700 py-3 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
+                        >
+                            <Download size={16} />
+                            下載全部結果
+                        </button>
+                    )}
+
+                    {/* Start Processing Button */}
                     <button
                         onClick={handleStartProcessing}
                         disabled={isProcessingDisabled}
@@ -441,7 +453,7 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
                             </>
                         )}
                     </button>
-                    <div className="mt-3 text-center">
+                    <div className="text-center">
                         <p className="text-[10px] text-gray-400">
                             {pendingCount > 0 ? `${pendingCount} image(s) ready to process` : "Add images to start"}
                         </p>
@@ -452,30 +464,17 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
             {/* --- Right Panel: Comparison Canvas --- */}
             <div className="flex-1 bg-gray-50/30 relative flex flex-col overflow-hidden">
 
-                {/* Right-side Toolbar (Downloads + Settings) */}
+                {/* Right-side Toolbar (Download Current + Settings) */}
                 <div className="absolute top-6 right-6 z-30 flex items-center gap-2">
-                    {/* Download Buttons - only show when result exists */}
+                    {/* Download Current - only show when viewing a processed image */}
                     {selectedImage?.resultUrl && (
-                        <div className="flex items-center gap-1 bg-white/80 backdrop-blur-md px-1.5 py-1.5 rounded-full shadow-lg border border-gray-200/50">
-                            <button
-                                onClick={() => selectedImage && handleDownloadSingle(selectedImage)}
-                                className="px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 text-gray-700 hover:bg-gray-100"
-                                title="下載此張"
-                            >
-                                <Download size={14} />
-                                下載目前
-                            </button>
-
-                            {images.some(img => img.status === 'success') && (
-                                <button
-                                    onClick={handleDownloadAll}
-                                    className="flex items-center gap-2 px-3 py-1.5 bg-black text-white rounded-full hover:bg-gray-800 transition-colors text-xs font-bold"
-                                >
-                                    <Download size={14} />
-                                    下載全部
-                                </button>
-                            )}
-                        </div>
+                        <button
+                            onClick={() => selectedImage && handleDownloadSingle(selectedImage)}
+                            className="p-2.5 rounded-full bg-white/80 backdrop-blur-md text-gray-700 border border-gray-200/50 hover:bg-white hover:shadow-xl transition-all shadow-lg"
+                            title="下載此張"
+                        >
+                            <Download size={18} />
+                        </button>
                     )}
 
                     {/* Settings Button */}
