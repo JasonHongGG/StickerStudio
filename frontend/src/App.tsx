@@ -4,6 +4,7 @@ import { UploadSection } from './components/UploadSection';
 import { ConfigSection } from './components/ConfigSection';
 import { ResultSection } from './components/ResultSection';
 import { BackgroundRemovalTool } from './components/BackgroundRemovalTool';
+import { ImageCropTool } from './components/ImageCropTool';
 import { SettingsModal } from './components/SettingsModal';
 import { GeneratedImage, StickerStyle, StickerPackInfo, StickerPlanItem, ReferenceImage } from './types';
 import { STYLES, EMOTIONS, COMMON_ACTIONS, SAME_AS_REF_ID, AUTO_MATCH_ID, CUSTOM_ACTION_ID, CUSTOM_EMOTION_ID } from './constants';
@@ -12,12 +13,12 @@ import { removeBackground } from './services/imageProcessingService';
 import { composeStyleSheets } from './services/imageCompositor';
 import { saveImageRecord, getAllImages, deleteImageRecord, updateBatchNameInDB, updateImageBatchId } from './services/storageService';
 import { resolveEmotionPrompt, resolveActionPrompt } from './services/prompts';
-import { Sparkles, StopCircle, Palette, Settings, Wrench, ArrowLeft, Plus, ChevronDown, LayoutGrid } from 'lucide-react';
+import { Sparkles, StopCircle, Palette, Settings, Wrench, ArrowLeft, Plus, ChevronDown, LayoutGrid, Crop } from 'lucide-react';
 
 const App: React.FC = () => {
   // --- State ---
   // Page Navigation State
-  const [currentPage, setCurrentPage] = useState<'main' | 'bg-removal'>('main');
+  const [currentPage, setCurrentPage] = useState<'main' | 'bg-removal' | 'image-crop'>('main');
 
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
   const [characterPrompt, setCharacterPrompt] = useState<string>('');
@@ -401,7 +402,7 @@ const App: React.FC = () => {
   // --- Render ---
 
   return (
-    <div className={`bg-gray-50 font-sans ${currentPage === 'bg-removal' ? 'h-screen overflow-hidden flex flex-col' : 'min-h-screen'}`}>
+    <div className={`bg-gray-50 font-sans ${currentPage !== 'main' ? 'h-screen overflow-hidden flex flex-col' : 'min-h-screen'}`}>
 
       {/* 1. Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
@@ -497,7 +498,9 @@ const App: React.FC = () => {
                 <div className="h-6 w-px bg-gray-200"></div>
 
                 <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-bold text-gray-900">批量去背工具</h1>
+                  <h1 className="text-lg font-bold text-gray-900">
+                    {currentPage === 'bg-removal' ? '批量去背工具' : '圖片裁切工具'}
+                  </h1>
                   <span className="bg-black text-white text-[10px] font-bold px-1.5 py-0.5 rounded leading-none">BETA</span>
                 </div>
               </div>
@@ -524,9 +527,9 @@ const App: React.FC = () => {
                         setCurrentPage('bg-removal');
                         setIsToolsOpen(false);
                       }}
-                      className="w-full text-left px-4 py-3 bg-gray-50 flex items-center gap-3 transition-colors"
+                      className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors"
                     >
-                      <div className="bg-black p-2 rounded-lg text-white shadow-sm">
+                      <div className={`p-2 rounded-lg shadow-sm ${currentPage === 'bg-removal' ? 'bg-black text-white' : 'bg-white text-gray-900 border border-gray-100'}`}>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                           <circle cx="8.5" cy="8.5" r="1.5"></circle>
@@ -536,7 +539,27 @@ const App: React.FC = () => {
                       </div>
                       <div>
                         <div className="font-bold text-gray-900 text-sm">批量去背工具</div>
-                        <div className="text-xs text-black font-medium">使用中</div>
+                        <div className={`text-xs font-medium ${currentPage === 'bg-removal' ? 'text-black' : 'text-gray-400'}`}>
+                          {currentPage === 'bg-removal' ? '使用中' : '自動移除背景'}
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setCurrentPage('image-crop');
+                        setIsToolsOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors"
+                    >
+                      <div className={`p-2 rounded-lg shadow-sm ${currentPage === 'image-crop' ? 'bg-black text-white' : 'bg-white text-gray-900 border border-gray-100'}`}>
+                        <Crop size={18} />
+                      </div>
+                      <div>
+                        <div className="font-bold text-gray-900 text-sm">圖片裁切工具</div>
+                        <div className={`text-xs font-medium ${currentPage === 'image-crop' ? 'text-black' : 'text-gray-400'}`}>
+                          {currentPage === 'image-crop' ? '使用中' : '批量裁切圖片'}
+                        </div>
                       </div>
                     </button>
 
@@ -652,6 +675,15 @@ const App: React.FC = () => {
         <div className="flex-1 w-full overflow-hidden px-4 lg:px-6 py-8">
           <div className="max-w-[1800px] mx-auto h-full">
             <BackgroundRemovalTool />
+          </div>
+        </div>
+      )}
+
+      {/* Image Crop Tool Page */}
+      {currentPage === 'image-crop' && (
+        <div className="flex-1 w-full overflow-hidden px-4 lg:px-6 py-8">
+          <div className="max-w-[1800px] mx-auto h-full">
+            <ImageCropTool />
           </div>
         </div>
       )}
