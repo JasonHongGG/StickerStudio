@@ -158,7 +158,7 @@ const App: React.FC = () => {
         if (signal.aborted) break;
 
         // 2. Remove Background (Client Side)
-        const noBgDataUrl = await removeBackground(`data:image/png;base64,${generatedBase64}`);
+        const noBgDataUrl = await removeBackground(`data:image/png;base64,${generatedBase64}`, { fitToStickerSize: true });
         const res = await fetch(noBgDataUrl);
         const blob = await res.blob();
 
@@ -325,7 +325,7 @@ const App: React.FC = () => {
         refinePrompt
       });
 
-      const noBgDataUrl = await removeBackground(`data:image/png;base64,${generatedBase64}`);
+      const noBgDataUrl = await removeBackground(`data:image/png;base64,${generatedBase64}`, { fitToStickerSize: true });
       const res = await fetch(noBgDataUrl);
       const blob = await res.blob();
 
@@ -537,7 +537,7 @@ const App: React.FC = () => {
                       </div>
                       <div>
                         <div className="font-bold text-gray-900 text-sm">批量去背工具</div>
-                        <div className="text-xs text-green-600 font-medium">使用中</div>
+                        <div className="text-xs text-black font-medium">使用中</div>
                       </div>
                     </button>
 

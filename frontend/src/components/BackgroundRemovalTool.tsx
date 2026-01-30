@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Upload, X, Download, Play, Check, AlertCircle, Image as ImageIcon, Trash2, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Upload, X, Download, Play, Check, AlertCircle, Image as ImageIcon, Trash2, ArrowRight, Plus, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { removeBackground } from '../services/imageProcessingService';
 import JSZip from 'jszip';
 
@@ -20,7 +20,13 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
     const [isProcessing, setIsProcessing] = useState(false);
     const [progress, setProgress] = useState({ current: 0, total: 0 });
     const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<'compare' | 'result'>('compare'); // compare: split/toggle, result: single
+    // const [viewMode, setViewMode] = useState<'compare' | 'result'>('compare'); // Removed in favor of permanent slider
+
+    // Slider state: 0 = Full Result, 100 = Full Original. 
+    // "Left side Original" means Original is visible from 0 to SliderPos.
+    const [sliderPosition, setSliderPosition] = useState(50);
+    const isDraggingSlider = useRef(false);
+    const containerRef = useRef<HTMLDivElement>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isDragging, setIsDragging] = useState(false);
@@ -34,7 +40,69 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
         }
     }, [images, selectedImageId]);
 
+    // Reset slider when image changes or status changes
+    const selectedImage = images.find(img => img.id === selectedImageId);
+    useEffect(() => {
+        if (selectedImage?.status === 'success') {
+            setSliderPosition(50); // Default to middle for comparison
+        } else {
+            setSliderPosition(100); // Show full original if not ready
+        }
+    }, [selectedImageId, selectedImage?.status]);
+
+
     // --- Handlers ---
+
+    const handleMouseMove = (clientX: number) => {
+        if (!isDraggingSlider.current || !containerRef.current || !selectedImage?.resultUrl) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        const x = clientX - rect.left;
+        const percent = Math.min(Math.max((x / rect.width) * 100, 0), 100);
+        setSliderPosition(percent);
+    };
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (selectedImage?.status !== 'success') return;
+        isDraggingSlider.current = true;
+        handleMouseMove(e.clientX);
+    };
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+        if (selectedImage?.status !== 'success') return;
+        isDraggingSlider.current = true;
+        handleMouseMove(e.touches[0].clientX);
+    };
+
+    useEffect(() => {
+        const onMove = (e: MouseEvent) => {
+            if (isDraggingSlider.current) {
+                e.preventDefault();
+                handleMouseMove(e.clientX);
+            }
+        };
+        const onUp = () => {
+            isDraggingSlider.current = false;
+        };
+        const onTouchMove = (e: TouchEvent) => {
+            if (isDraggingSlider.current) {
+                // e.preventDefault(); // Optional: prevent scroll
+                handleMouseMove(e.touches[0].clientX);
+            }
+        };
+
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        window.addEventListener('touchmove', onTouchMove);
+        window.addEventListener('touchend', onUp);
+
+        return () => {
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+            window.removeEventListener('touchmove', onTouchMove);
+            window.removeEventListener('touchend', onUp);
+        };
+    }, [selectedImage]);
+
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -180,27 +248,38 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
     };
 
     // --- Render ---
-    const selectedImage = images.find(img => img.id === selectedImageId);
+    // Calculations for status
+    const pendingCount = images.filter(i => i.status === 'idle' || i.status === 'error').length;
+    const isProcessingDisabled = isProcessing || pendingCount === 0 || images.length === 0;
 
     return (
-        <div className="min-h-[calc(100vh-100px)] flex flex-col gap-6 animate-in fade-in duration-500">
+        <div className="flex flex-col lg:flex-row h-[calc(100vh-140px)] min-h-[600px] bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-200 animate-in fade-in duration-500">
 
-            {/* Header Removed */}
+            {/* --- Left Panel: Structured Sidebar --- */}
+            <div className="w-full lg:w-80 flex-shrink-0 border-r border-gray-100 bg-white flex flex-col z-10 font-sans">
 
-            <div className="flex flex-col lg:flex-row gap-6 h-[700px]">
-                {/* Left: Upload & List Area */}
-                <div className="w-full lg:w-[320px] flex flex-col gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200 h-full">
+                {/* 1. Header & Upload Zone (Fixed Top) */}
+                <div className="flex-shrink-0 p-5 border-b border-gray-100 bg-white z-20">
+                    <div className="flex justify-between items-center mb-4">
+                        <div className="text-xs font-bold text-gray-900 tracking-wider">SOURCE FILES</div>
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="text-xs font-bold text-gray-500 hover:text-black flex items-center gap-1 transition-colors"
+                        >
+                            <Plus size={14} />
+                            ADD NEW
+                        </button>
+                    </div>
 
-                    {/* Upload Box */}
                     <div
                         onDragOver={handleDragOver}
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
                         onClick={() => fileInputRef.current?.click()}
                         className={`
-                flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all h-32 flex-shrink-0
-                ${isDragging ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-green-400 hover:bg-gray-50'}
-              `}
+                            group flex flex-col items-center justify-center py-6 border border-dashed rounded-xl cursor-pointer transition-all relative overflow-hidden
+                            ${isDragging ? 'border-black bg-gray-50' : 'border-gray-300 hover:border-black hover:bg-gray-50'}
+                        `}
                     >
                         <input
                             type="file"
@@ -210,237 +289,265 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
                             accept="image/png, image/jpeg, image/webp"
                             onChange={handleFileSelect}
                         />
-                        <Upload className="text-gray-400 mb-2" size={24} />
-                        <p className="text-sm text-gray-500 font-medium">點擊或拖放上傳圖片</p>
+                        <div className="relative z-10 flex flex-col items-center gap-2">
+                            <div className={`p-2 rounded-full transition-colors ${isDragging ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 group-hover:bg-black group-hover:text-white'}`}>
+                                <Upload size={18} />
+                            </div>
+                            <span className="text-xs font-medium text-gray-500">拖放或點擊上傳</span>
+                        </div>
                     </div>
+                </div>
 
-                    {/* Controls */}
+                {/* 2. Scrollable Queue List (Flex Middle) */}
+                <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent flex flex-col">
+                    {/* Sticky List Header */}
                     {images.length > 0 && (
-                        <div className="flex gap-2">
-                            <button
-                                onClick={handleStartProcessing}
-                                disabled={isProcessing || !images.some(img => img.status === 'idle' || img.status === 'error')}
-                                className="flex-1 bg-gray-900 text-white py-2 rounded-lg font-bold text-sm hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm flex items-center justify-center gap-2"
-                            >
-                                {isProcessing ? (
-                                    <span className="animate-pulse">處理中... {progress.current}/{progress.total}</span>
-                                ) : (
-                                    <>
-                                        <Play size={16} fill="currentColor" />
-                                        開始去背
-                                    </>
-                                )}
-                            </button>
+                        <div className="sticky top-0 bg-white/95 backdrop-blur-sm px-5 py-2 border-b border-gray-50 flex items-center justify-between z-10 shadow-sm">
+                            <span className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">
+                                Queue ({images.length})
+                            </span>
                             <button
                                 onClick={handleClearAll}
                                 disabled={isProcessing}
-                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                title="清除全部"
+                                className="text-[10px] font-bold text-gray-400 hover:text-red-500 flex items-center gap-1 transition-colors disabled:opacity-50"
                             >
-                                <Trash2 size={18} />
+                                <Trash2 size={12} />
+                                CLEAR ALL
                             </button>
                         </div>
                     )}
 
-                    {/* List */}
-                    <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin scrollbar-thumb-gray-200">
+                    {/* List Content */}
+                    <div className="p-3 space-y-2 flex-1">
                         {images.map((img) => (
                             <div
                                 key={img.id}
                                 onClick={() => handleSelectImage(img.id)}
                                 className={`
-                     flex items-center gap-3 p-2 rounded-lg cursor-pointer border transition-all group
-                     ${selectedImageId === img.id ? 'bg-green-50 border-green-200 ring-1 ring-green-200' : 'bg-gray-50 border-transparent hover:bg-gray-100'}
-                   `}
+                                    group relative flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 border
+                                    ${selectedImageId === img.id ? 'bg-gray-900 border-gray-900 shadow-md z-0' : 'bg-white border-transparent hover:bg-gray-50'}
+                                `}
                             >
-                                <div className="w-10 h-10 rounded bg-white border border-gray-200 overflow-hidden flex-shrink-0 relative">
+                                <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0 relative">
                                     <img src={img.previewUrl} className="w-full h-full object-cover" />
                                     {img.status === 'success' && (
-                                        <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center text-white">
-                                            <Check size={12} strokeWidth={4} />
+                                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center backdrop-blur-[1px]">
+                                            <Check size={12} className="text-white" strokeWidth={3} />
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className={`text-xs font-medium truncate ${selectedImageId === img.id ? 'text-green-800' : 'text-gray-700'}`}>
+
+                                <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                                    <p className={`text-xs font-bold truncate ${selectedImageId === img.id ? 'text-white' : 'text-gray-900'}`}>
                                         {img.file.name}
                                     </p>
-                                    <p className="text-[10px] text-gray-400">
-                                        {img.status === 'idle' && '等待處理'}
-                                        {img.status === 'processing' && <span className="text-amber-500">處理中...</span>}
-                                        {img.status === 'success' && <span className="text-green-600">完成</span>}
-                                        {img.status === 'error' && <span className="text-red-500">失敗</span>}
-                                    </p>
+                                    <div className="flex items-center gap-1.5 h-3">
+                                        {/* Status Text */}
+                                        <span className={`text-[10px] font-medium leading-none ${selectedImageId === img.id ? 'text-gray-400' : 'text-gray-500'}`}>
+                                            {img.status === 'idle' && 'Waiting'}
+                                            {img.status === 'processing' && 'Processing...'}
+                                            {img.status === 'success' && 'Ready'}
+                                            {img.status === 'error' && 'Failed'}
+                                        </span>
+                                    </div>
                                 </div>
+
+                                {/* Hover Remove Button */}
                                 <button
                                     onClick={(e) => handleRemoveImage(img.id, e)}
-                                    className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-all"
+                                    className={`opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full ${selectedImageId === img.id ? 'text-gray-400 hover:text-white hover:bg-white/20' : 'text-gray-300 hover:text-red-500 hover:bg-red-50'}`}
                                 >
                                     <X size={14} />
                                 </button>
+
+                                {/* Processing Indicator Overrides all icons if strictly processing */}
+                                {img.status === 'processing' && (
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                        <div className="w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                                    </div>
+                                )}
                             </div>
                         ))}
+
+                        {/* Empty State in List */}
                         {images.length === 0 && (
-                            <div className="h-full flex flex-col items-center justify-center text-gray-400 text-sm opacity-60">
-                                <ImageIcon size={32} className="mb-2" />
-                                <p>尚未加入圖片</p>
+                            <div className="h-full min-h-[200px] flex flex-col items-center justify-center text-gray-300 gap-2 opacity-60">
+                                <ImageIcon size={32} />
+                                <p className="text-xs">No images in queue</p>
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* Right: Main Preview Area */}
-                <div className="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
-
-                    {/* Preview Toolbar */}
-                    <div className="h-14 border-b border-gray-100 flex items-center justify-between px-4 bg-gray-50/50">
-                        <div className="flex items-center gap-4 text-sm font-medium text-gray-600">
-                            <span>預覽模式：</span>
-                            <div className="flex bg-gray-200 rounded-lg p-1">
-                                <button
-                                    onClick={() => setViewMode('compare')}
-                                    className={`px-3 py-1 rounded-md text-xs transition-all ${viewMode === 'compare' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
-                                >
-                                    對照比較
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('result')}
-                                    className={`px-3 py-1 rounded-md text-xs transition-all ${viewMode === 'result' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
-                                >
-                                    僅顯示結果
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            {images.some(img => img.status === 'success') && (
-                                <button
-                                    onClick={handleDownloadAll}
-                                    className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium"
-                                    title="下載全部處理完成圖片"
-                                >
-                                    <Download size={16} />
-                                    <span className="hidden sm:inline">下載全部 ({images.filter(img => img.status === 'success').length})</span>
-                                </button>
-                            )}
-
-                            {selectedImage?.status === 'success' && (
-                                <button
-                                    onClick={() => handleDownloadSingle(selectedImage)}
-                                    className="flex items-center gap-2 bg-black text-white hover:bg-gray-800 font-bold text-sm px-3 py-1.5 rounded-lg transition-colors shadow-sm"
-                                >
-                                    <Download size={16} />
-                                    <span className="hidden sm:inline">下載此張</span>
-                                </button>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Main Viewer */}
-                    <div className="flex-1 bg-[url('https://repo.sourcelib.xyz/checker-bg.png')] flex items-center justify-center relative group p-8">
-
-                        {selectedImage ? (
+                {/* 3. Action Footer (Fixed Bottom) */}
+                <div className="flex-shrink-0 p-5 border-t border-gray-100 bg-gray-50/50 z-20">
+                    <button
+                        onClick={handleStartProcessing}
+                        disabled={isProcessingDisabled}
+                        className="w-full bg-black text-white py-3.5 rounded-xl font-bold text-sm hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-all shadow-lg active:scale-[0.98] flex items-center justify-center gap-3"
+                    >
+                        {isProcessing ? (
                             <>
-                                {/* Previous Button */}
-                                <button
-                                    onClick={handlePrevImage}
-                                    className="absolute left-4 z-10 p-3 bg-white/80 hover:bg-white text-gray-700 rounded-full shadow-lg backdrop-blur mx-2 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0"
-                                    disabled={images.indexOf(selectedImage) === 0}
-                                >
-                                    <ArrowLeft size={24} />
-                                </button>
-
-                                {/* Image Display */}
-                                <div className="relative max-w-full max-h-full flex items-center justify-center shadow-2xl rounded-lg overflow-hidden bg-white/10 backdrop-blur-sm border border-white/20">
-
-                                    {/* 1. Compare Mode: Side by Side if space permits, otherwise use a slider concept? 
-                        Let's implement a simple "Hover to Reveal" or "Side by Side"
-                        The user asked for "Single image view", which implies focusing on one.
-                        
-                        Let's do a simple implementation:
-                        If 'compare': Show Original on Left (or opacity overlay), Result on Right.
-                        Actually, 'compare' usually means "Original" vs "Result".
-                        A split slider is best, but let's stick to simple side-by-side or toggle.
-                        Let's do: Hover original to see result? Or Click to toggle?
-                        User asked for: "can switch next/prev", "single result view".
-                      */}
-
-                                    {/* IMPLEMENTATION: If compare mode, we show Toggle. If result mode, just result (or original if not done) */}
-
-                                    {viewMode === 'compare' ? (
-                                        <div className="relative group/compare cursor-crosshair">
-                                            {/* Base: Original */}
-                                            <img
-                                                src={selectedImage.previewUrl}
-                                                className="max-h-[500px] object-contain"
-                                                alt="Original"
-                                            />
-
-                                            {/* Overlay: Result (Only if success) */}
-                                            {selectedImage.status === 'success' && selectedImage.resultUrl && (
-                                                <div className="absolute inset-0 opacity-0 group-hover/compare:opacity-100 transition-opacity duration-300">
-                                                    <img
-                                                        src={selectedImage.resultUrl}
-                                                        className="w-full h-full object-contain"
-                                                        alt="Result"
-                                                    />
-                                                    <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded pointer-events-none">
-                                                        去背結果
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {selectedImage.status === 'success' && (
-                                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-xs font-medium pointer-events-none group-hover/compare:opacity-0 transition-opacity">
-                                                    按住/懸停 查看結果
-                                                </div>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <img
-                                            src={selectedImage.status === 'success' ? selectedImage.resultUrl : selectedImage.previewUrl}
-                                            className="max-h-[550px] object-contain"
-                                            alt="View"
-                                        />
-                                    )}
-
-                                    {/* Status Overlay */}
-                                    {selectedImage.status === 'processing' && (
-                                        <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-20">
-                                            <div className="flex flex-col items-center gap-3">
-                                                <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-                                                <span className="font-bold text-green-700">AI 去背處理中...</span>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {selectedImage.status === 'error' && (
-                                        <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-                                            <div className="bg-red-500/90 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg">
-                                                <AlertCircle size={20} />
-                                                處理失敗
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Next Button */}
-                                <button
-                                    onClick={handleNextImage}
-                                    className="absolute right-4 z-10 p-3 bg-white/80 hover:bg-white text-gray-700 rounded-full shadow-lg backdrop-blur mx-2 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0"
-                                    disabled={images.indexOf(selectedImage) === images.length - 1}
-                                >
-                                    <ArrowRight size={24} />
-                                </button>
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                <span className="font-mono">{progress.current} / {progress.total}</span>
                             </>
                         ) : (
-                            <div className="text-center text-gray-400">
-                                <p className="text-lg">請選擇或上傳圖片</p>
-                            </div>
+                            <>
+                                <Play size={16} fill="currentColor" />
+                                <span>START PROCESSING</span>
+                            </>
                         )}
+                    </button>
+                    <div className="mt-3 text-center">
+                        <p className="text-[10px] text-gray-400">
+                            {pendingCount > 0 ? `${pendingCount} image(s) ready to process` : "Add images to start"}
+                        </p>
                     </div>
                 </div>
             </div>
-        </div >
+
+            {/* --- Right Panel: Comparison Canvas --- */}
+            <div className="flex-1 bg-gray-50/30 relative flex flex-col overflow-hidden">
+
+                {/* Floating Toolbar (Downloads only) */}
+                <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white/80 backdrop-blur-md px-1.5 py-1.5 rounded-full shadow-lg border border-gray-200/50 z-30 transition-all hover:bg-white/95 hover:shadow-xl">
+                    <button
+                        onClick={() => selectedImage && handleDownloadSingle(selectedImage)}
+                        disabled={!selectedImage?.resultUrl}
+                        className="px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                        title="下載此張"
+                    >
+                        <Download size={14} />
+                        下載目前
+                    </button>
+
+                    {images.some(img => img.status === 'success') && (
+                        <button
+                            onClick={handleDownloadAll}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-black text-white rounded-full hover:bg-gray-800 transition-colors shadow-sm ml-1 text-xs font-bold"
+                        >
+                            <Download size={14} />
+                            下載全部
+                        </button>
+                    )}
+                </div>
+
+                {/* Canvas Area */}
+                <div className="flex-1 bg-[url('https://repo.sourcelib.xyz/checker-bg.png')] flex items-center justify-center relative group p-10 overflow-hidden select-none">
+                    {selectedImage ? (
+                        <>
+                            {/* Nav Buttons */}
+                            <button
+                                onClick={handlePrevImage}
+                                className="absolute left-6 top-1/2 -translate-y-1/2 p-3 bg-white hover:bg-gray-50 text-black rounded-full shadow-xl transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 active:scale-95 border border-gray-100 z-50"
+                                disabled={images.indexOf(selectedImage) === 0}
+                            >
+                                <ArrowLeft size={20} />
+                            </button>
+                            <button
+                                onClick={handleNextImage}
+                                className="absolute right-6 top-1/2 -translate-y-1/2 p-3 bg-white hover:bg-gray-50 text-black rounded-full shadow-xl transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 active:scale-95 border border-gray-100 z-50"
+                                disabled={images.indexOf(selectedImage) === images.length - 1}
+                            >
+                                <ArrowRight size={20} />
+                            </button>
+
+                            {/* Comparison Slider Container */}
+                            <div
+                                className="relative shadow-2xl rounded-lg overflow-hidden bg-white cursor-ew-resize select-none"
+                                ref={containerRef}
+                                onMouseDown={handleMouseDown}
+                                onTouchStart={handleTouchStart}
+                            >
+                                {/* 0. Layout Anchor (Invoice/Opacity-0) - Always Original Image to define container size */}
+                                <img
+                                    src={selectedImage.previewUrl}
+                                    className="block max-h-[85vh] max-w-[85vw] w-auto h-auto opacity-0 pointer-events-none select-none"
+                                    aria-hidden="true"
+                                    alt="Layout Anchor"
+                                />
+
+                                {/* 1. Result Layer (Bottom) - Absolute, fills container */}
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <img
+                                        src={selectedImage.status === 'success' && selectedImage.resultUrl ? selectedImage.resultUrl : selectedImage.previewUrl}
+                                        className="w-full h-full object-contain pointer-events-none select-none"
+                                        draggable={false}
+                                        alt="Result"
+                                    />
+                                </div>
+
+                                {/* 2. Original Layer (Top) - Clipped Overlay */}
+                                <div
+                                    className="absolute inset-0 overflow-hidden pointer-events-none select-none"
+                                    style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
+                                >
+                                    <img
+                                        src={selectedImage.previewUrl}
+                                        className="w-full h-full object-contain pointer-events-none select-none"
+                                        draggable={false}
+                                        alt="Original"
+                                    />
+                                </div>
+
+                                {/* Labels - Moved outside to prevent clipping */}
+                                <div className="absolute top-4 left-4 bg-black/80 backdrop-blur text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg pointer-events-none z-20">
+                                    原始圖片
+                                </div>
+
+                                {/* Result Label (On bottom layer) */}
+                                {selectedImage.status === 'success' && (
+                                    <div className="absolute top-4 right-4 bg-black/80 backdrop-blur text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg pointer-events-none">
+                                        去背結果
+                                    </div>
+                                )}
+
+                                {/* 3. Slider Handle */}
+                                {selectedImage.status === 'success' && (
+                                    <div
+                                        className="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize z-20 shadow-[0_0_10px_rgba(0,0,0,0.3)] pointer-events-none"
+                                        style={{ left: `${sliderPosition}%` }}
+                                    >
+                                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center text-gray-900 border border-gray-200">
+                                            <div className="flex gap-[-2px]">
+                                                <ChevronsLeft size={10} strokeWidth={3} className="-mr-1" />
+                                                <ChevronsRight size={10} strokeWidth={3} className="-ml-1" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Loading Overlay */}
+                                {selectedImage.status === 'processing' && (
+                                    <div className="absolute inset-0 bg-white/30 backdrop-blur-sm flex items-center justify-center z-30 pointer-events-none">
+                                        <div className="bg-white p-4 rounded-2xl shadow-2xl flex flex-col items-center gap-3">
+                                            <div className="w-8 h-8 border-4 border-black border-t-transparent rounded-full animate-spin"></div>
+                                            <span className="font-bold text-xs text-black">去除背景中...</span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Error Overlay */}
+                                {selectedImage.status === 'error' && (
+                                    <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
+                                        <div className="bg-red-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg font-bold text-sm">
+                                            <AlertCircle size={18} />
+                                            處理失敗
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    ) : (
+                        <div className="text-center opacity-40 flex flex-col items-center gap-4 select-none">
+                            <div className="p-6 bg-gray-100 rounded-full border-2 border-dashed border-gray-300">
+                                <ImageIcon size={48} className="text-gray-400" />
+                            </div>
+                            <p className="text-lg font-bold text-gray-400">請選擇圖片以開始預覽</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
     );
 };

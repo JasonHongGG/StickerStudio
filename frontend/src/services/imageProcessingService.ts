@@ -47,51 +47,69 @@ function isGreenPixel(r: number, g: number, b: number): boolean {
     return false;
 }
 
+export interface BackgroundRemovalOptions {
+    fitToStickerSize?: boolean;
+}
+
 // Core Removal Function
-export async function removeBackground(imageSrc: string): Promise<string> {
+export async function removeBackground(imageSrc: string, options: BackgroundRemovalOptions = {}): Promise<string> {
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.crossOrigin = 'Anonymous';
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const w = 370; // Fixed output size requirement
-            const h = 320;
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-                reject('Canvas context not available');
-                return;
-            }
 
-            // --- FIX: Aspect Fit Logic ---
-            // 1. Fill the canvas with pure Green (#00FF00) first.
-            //    This ensures that any letterboxing (empty space) from aspect ratio preservation
-            //    merges with the model's green background and gets removed by the algorithm.
-            ctx.fillStyle = '#00FF00';
-            ctx.fillRect(0, 0, w, h);
+            // Determine dimensions based on options
+            let w, h, dx = 0, dy = 0, drawW, drawH;
 
-            // 2. Calculate dimensions to fit the image within 370x320 maintaining aspect ratio
-            const imgRatio = img.width / img.height;
-            const targetRatio = w / h;
-            let drawW, drawH, dx, dy;
+            if (options.fitToStickerSize) {
+                // Sticker Mode: Fixed 370x320 with Aspect Fit & Green Padding
+                w = 370;
+                h = 320;
+                canvas.width = w;
+                canvas.height = h;
 
-            if (imgRatio > targetRatio) {
-                // Image is wider than target (fit to width)
-                drawW = w;
-                drawH = w / imgRatio;
-                dx = 0;
-                dy = (h - drawH) / 2;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) { reject('Canvas context not available'); return; }
+
+                // 1. Fill with pure Green (#00FF00) for letterboxing merging
+                ctx.fillStyle = '#00FF00';
+                ctx.fillRect(0, 0, w, h);
+
+                // 2. Aspect Fit Logic
+                const imgRatio = img.width / img.height;
+                const targetRatio = w / h;
+
+                if (imgRatio > targetRatio) {
+                    drawW = w;
+                    drawH = w / imgRatio;
+                    dx = 0;
+                    dy = (h - drawH) / 2;
+                } else {
+                    drawH = h;
+                    drawW = h * imgRatio;
+                    dy = 0;
+                    dx = (w - drawW) / 2;
+                }
+
+                // 3. Draw image centered
+                ctx.drawImage(img, dx, dy, drawW, drawH);
+
             } else {
-                // Image is taller than target (fit to height)
-                drawH = h;
-                drawW = h * imgRatio;
-                dy = 0;
-                dx = (w - drawW) / 2;
+                // General Tool Mode: Original Size
+                w = img.width;
+                h = img.height;
+                canvas.width = w;
+                canvas.height = h;
+
+                const ctx = canvas.getContext('2d');
+                if (!ctx) { reject('Canvas context not available'); return; }
+
+                // Draw directly
+                ctx.drawImage(img, 0, 0);
             }
 
-            // 3. Draw image centered
-            ctx.drawImage(img, dx, dy, drawW, drawH);
+            const ctx = canvas.getContext('2d')!; // Context assured exist
 
             const imageData = ctx.getImageData(0, 0, w, h);
             const data = imageData.data;
