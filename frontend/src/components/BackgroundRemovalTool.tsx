@@ -452,87 +452,89 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
             {/* --- Right Panel: Comparison Canvas --- */}
             <div className="flex-1 bg-gray-50/30 relative flex flex-col overflow-hidden">
 
-                {/* Floating Toolbar (Downloads only) */}
-                {selectedImage?.resultUrl && (
-                    <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white/80 backdrop-blur-md px-1.5 py-1.5 rounded-full shadow-lg border border-gray-200/50 z-30 transition-all hover:bg-white/95 hover:shadow-xl">
-                        <button
-                            onClick={() => selectedImage && handleDownloadSingle(selectedImage)}
-                            disabled={!selectedImage?.resultUrl}
-                            className="px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 text-gray-700 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="下載此張"
-                        >
-                            <Download size={14} />
-                            下載目前
-                        </button>
-
-                        {images.some(img => img.status === 'success') && (
+                {/* Right-side Toolbar (Downloads + Settings) */}
+                <div className="absolute top-6 right-6 z-30 flex items-center gap-2">
+                    {/* Download Buttons - only show when result exists */}
+                    {selectedImage?.resultUrl && (
+                        <div className="flex items-center gap-1 bg-white/80 backdrop-blur-md px-1.5 py-1.5 rounded-full shadow-lg border border-gray-200/50">
                             <button
-                                onClick={handleDownloadAll}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-black text-white rounded-full hover:bg-gray-800 transition-colors shadow-sm ml-1 text-xs font-bold"
+                                onClick={() => selectedImage && handleDownloadSingle(selectedImage)}
+                                className="px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 text-gray-700 hover:bg-gray-100"
+                                title="下載此張"
                             >
                                 <Download size={14} />
-                                下載全部
+                                下載目前
                             </button>
-                        )}
-                    </div>
-                )}
 
-                {/* Settings Button (Top Right) */}
-                <div className="absolute top-6 right-6 z-30">
-                    <button
-                        onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                        className={`p-2.5 rounded-full transition-all shadow-lg border ${isSettingsOpen
-                            ? 'bg-black text-white border-black'
-                            : 'bg-white/80 backdrop-blur-md text-gray-700 border-gray-200/50 hover:bg-white hover:shadow-xl'}`}
-                        title="處理設定"
-                    >
-                        <Settings size={18} />
-                    </button>
-
-                    {/* Settings Popover */}
-                    {isSettingsOpen && (
-                        <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-3 px-4 animate-in fade-in zoom-in-95 duration-200">
-                            <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
-                                處理模式
-                            </div>
-
-                            <div className="space-y-2">
+                            {images.some(img => img.status === 'success') && (
                                 <button
-                                    onClick={() => { setProcessingMode('algorithm'); setIsSettingsOpen(false); }}
-                                    className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 transition-colors ${processingMode === 'algorithm'
-                                        ? 'bg-black text-white'
-                                        : 'hover:bg-gray-50 text-gray-700'}`}
+                                    onClick={handleDownloadAll}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-black text-white rounded-full hover:bg-gray-800 transition-colors text-xs font-bold"
                                 >
-                                    <div className={`w-3 h-3 rounded-full border-2 ${processingMode === 'algorithm' ? 'bg-white border-white' : 'border-gray-300'}`} />
-                                    <div>
-                                        <div className="font-bold text-sm">演算法去背</div>
-                                        <div className={`text-xs ${processingMode === 'algorithm' ? 'text-white/70' : 'text-gray-400'}`}>瀏覽器端處理</div>
-                                    </div>
+                                    <Download size={14} />
+                                    下載全部
                                 </button>
-
-                                <button
-                                    onClick={() => { setProcessingMode('ai'); setIsSettingsOpen(false); }}
-                                    disabled={isAIAvailable === false}
-                                    className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 transition-colors ${processingMode === 'ai'
-                                        ? 'bg-black text-white'
-                                        : isAIAvailable === false
-                                            ? 'opacity-50 cursor-not-allowed text-gray-400'
-                                            : 'hover:bg-gray-50 text-gray-700'}`}
-                                >
-                                    <div className={`w-3 h-3 rounded-full border-2 ${processingMode === 'ai' ? 'bg-white border-white' : 'border-gray-300'}`} />
-                                    <div>
-                                        <div className="font-bold text-sm flex items-center gap-2">
-                                            AI 去背
-                                            {isAIAvailable === null && <span className="text-[10px] text-gray-400">(檢測中...)</span>}
-                                            {isAIAvailable === false && <span className="text-[10px] text-red-400">(離線)</span>}
-                                            {isAIAvailable === true && <span className="text-[10px] text-green-500">(可用)</span>}
-                                        </div>
-                                        <div className={`text-xs ${processingMode === 'ai' ? 'text-white/70' : 'text-gray-400'}`}>ComfyUI 伺服器處理</div>
-                                    </div>
-                                </button>
-                            </div>
+                            )}
                         </div>
                     )}
+
+                    {/* Settings Button */}
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                            className={`p-2.5 rounded-full transition-all shadow-lg border ${isSettingsOpen
+                                ? 'bg-black text-white border-black'
+                                : 'bg-white/80 backdrop-blur-md text-gray-700 border-gray-200/50 hover:bg-white hover:shadow-xl'}`}
+                            title="處理設定"
+                        >
+                            <Settings size={18} />
+                        </button>
+
+                        {/* Settings Popover */}
+                        {isSettingsOpen && (
+                            <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-3 px-4 animate-in fade-in zoom-in-95 duration-200">
+                                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+                                    處理模式
+                                </div>
+
+                                <div className="space-y-2">
+                                    <button
+                                        onClick={() => { setProcessingMode('algorithm'); setIsSettingsOpen(false); }}
+                                        className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 transition-colors ${processingMode === 'algorithm'
+                                            ? 'bg-black text-white'
+                                            : 'hover:bg-gray-50 text-gray-700'}`}
+                                    >
+                                        <div className={`w-3 h-3 rounded-full border-2 ${processingMode === 'algorithm' ? 'bg-white border-white' : 'border-gray-300'}`} />
+                                        <div>
+                                            <div className="font-bold text-sm">演算法去背</div>
+                                            <div className={`text-xs ${processingMode === 'algorithm' ? 'text-white/70' : 'text-gray-400'}`}>瀏覽器端處理</div>
+                                        </div>
+                                    </button>
+
+                                    <button
+                                        onClick={() => { setProcessingMode('ai'); setIsSettingsOpen(false); }}
+                                        disabled={isAIAvailable === false}
+                                        className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-3 transition-colors ${processingMode === 'ai'
+                                            ? 'bg-black text-white'
+                                            : isAIAvailable === false
+                                                ? 'opacity-50 cursor-not-allowed text-gray-400'
+                                                : 'hover:bg-gray-50 text-gray-700'}`}
+                                    >
+                                        <div className={`w-3 h-3 rounded-full border-2 ${processingMode === 'ai' ? 'bg-white border-white' : 'border-gray-300'}`} />
+                                        <div>
+                                            <div className="font-bold text-sm flex items-center gap-2">
+                                                AI 去背
+                                                {isAIAvailable === null && <span className="text-[10px] text-gray-400">(檢測中...)</span>}
+                                                {isAIAvailable === false && <span className="text-[10px] text-red-400">(離線)</span>}
+                                                {isAIAvailable === true && <span className="text-[10px] text-green-500">(可用)</span>}
+                                            </div>
+                                            <div className={`text-xs ${processingMode === 'ai' ? 'text-white/70' : 'text-gray-400'}`}>ComfyUI 伺服器處理</div>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Canvas Area */}

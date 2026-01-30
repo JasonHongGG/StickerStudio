@@ -686,23 +686,19 @@ const App: React.FC = () => {
 
 
 
-      {/* Background Removal Tool Page */}
-      {currentPage === 'bg-removal' && (
-        <div className="flex-1 w-full overflow-hidden px-4 lg:px-6 py-8">
-          <div className="max-w-[1800px] mx-auto h-full">
-            <BackgroundRemovalTool />
-          </div>
+      {/* Background Removal Tool Page - Always mounted, hidden via CSS */}
+      <div className={`flex-1 w-full overflow-hidden px-4 lg:px-6 py-8 ${currentPage === 'bg-removal' ? '' : 'hidden'}`}>
+        <div className="max-w-[1800px] mx-auto h-full">
+          <BackgroundRemovalTool />
         </div>
-      )}
+      </div>
 
-      {/* Image Crop Tool Page */}
-      {currentPage === 'image-crop' && (
-        <div className="flex-1 w-full overflow-hidden px-4 lg:px-6 py-8">
-          <div className="max-w-[1800px] mx-auto h-full">
-            <ImageCropTool />
-          </div>
+      {/* Image Crop Tool Page - Always mounted, hidden via CSS */}
+      <div className={`flex-1 w-full overflow-hidden px-4 lg:px-6 py-8 ${currentPage === 'image-crop' ? '' : 'hidden'}`}>
+        <div className="max-w-[1800px] mx-auto h-full">
+          <ImageCropTool />
         </div>
-      )}
+      </div>
 
       {/* Settings Modal */}
       <SettingsModal
