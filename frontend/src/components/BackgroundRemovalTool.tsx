@@ -253,24 +253,13 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
     const isProcessingDisabled = isProcessing || pendingCount === 0 || images.length === 0;
 
     return (
-        <div className="flex flex-col lg:flex-row h-[calc(100vh-140px)] min-h-[600px] bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-200 animate-in fade-in duration-500">
+        <div className="flex flex-col lg:flex-row w-full h-full bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-200 animate-in fade-in duration-500">
 
             {/* --- Left Panel: Structured Sidebar --- */}
             <div className="w-full lg:w-80 flex-shrink-0 border-r border-gray-100 bg-white flex flex-col z-10 font-sans">
 
                 {/* 1. Header & Upload Zone (Fixed Top) */}
                 <div className="flex-shrink-0 p-5 border-b border-gray-100 bg-white z-20">
-                    <div className="flex justify-between items-center mb-4">
-                        <div className="text-xs font-bold text-gray-900 tracking-wider">SOURCE FILES</div>
-                        <button
-                            onClick={() => fileInputRef.current?.click()}
-                            className="text-xs font-bold text-gray-500 hover:text-black flex items-center gap-1 transition-colors"
-                        >
-                            <Plus size={14} />
-                            ADD NEW
-                        </button>
-                    </div>
-
                     <div
                         onDragOver={handleDragOver}
                         onDragLeave={handleDragLeave}
@@ -306,14 +295,23 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
                             <span className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">
                                 Queue ({images.length})
                             </span>
-                            <button
-                                onClick={handleClearAll}
-                                disabled={isProcessing}
-                                className="text-[10px] font-bold text-gray-400 hover:text-red-500 flex items-center gap-1 transition-colors disabled:opacity-50"
-                            >
-                                <Trash2 size={12} />
-                                CLEAR ALL
-                            </button>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="p-1 text-gray-400 hover:text-black hover:bg-gray-100 rounded transition-all"
+                                    title="Add New"
+                                >
+                                    <Plus size={14} />
+                                </button>
+                                <button
+                                    onClick={handleClearAll}
+                                    disabled={isProcessing}
+                                    className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all disabled:opacity-50"
+                                    title="Clear All"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
                         </div>
                     )}
 
