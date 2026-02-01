@@ -11,6 +11,11 @@ interface ImageItem {
     previewUrl: string;
     drawingDataUrl?: string; // Saved drawing layer
     status: 'idle' | 'edited';
+    transformState?: {
+        scale: number;
+        x: number;
+        y: number;
+    };
 }
 
 export const ImagePaintTool: React.FC<ImagePaintToolProps> = () => {
@@ -56,17 +61,26 @@ export const ImagePaintTool: React.FC<ImagePaintToolProps> = () => {
     useEffect(() => {
         if (!selectedImageId || !canvasRef.current || !containerRef.current) return;
 
-        const img = new Image();
-        img.src = images.find(i => i.id === selectedImageId)?.previewUrl || '';
-        img.onload = () => {
-            // Fit logic
-            const container = containerRef.current!;
-            const scaleX = container.clientWidth / img.naturalWidth;
-            const scaleY = container.clientHeight / img.naturalHeight;
-            const fitScale = Math.min(scaleX, scaleY) * 0.95;
+        const imgItem = images.find(i => i.id === selectedImageId);
+        if (!imgItem) return;
 
-            setScale(fitScale);
-            setPosition({ x: 0, y: 0 }); // Center
+        const img = new Image();
+        img.src = imgItem.previewUrl || '';
+        img.onload = () => {
+            // Restore Transform if exists, else Auto-Fit
+            if (imgItem.transformState) {
+                setScale(imgItem.transformState.scale);
+                setPosition({ x: imgItem.transformState.x, y: imgItem.transformState.y });
+            } else {
+                // Fit logic
+                const container = containerRef.current!;
+                const scaleX = container.clientWidth / img.naturalWidth;
+                const scaleY = container.clientHeight / img.naturalHeight;
+                const fitScale = Math.min(scaleX, scaleY) * 0.95;
+
+                setScale(fitScale);
+                setPosition({ x: 0, y: 0 }); // Center
+            }
 
             // Setup Canvas size to match image resolution
             const canvas = canvasRef.current!;
@@ -80,7 +94,7 @@ export const ImagePaintTool: React.FC<ImagePaintToolProps> = () => {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                 // Restore drawing if exists
-                const savedDrawing = images.find(i => i.id === selectedImageId)?.drawingDataUrl;
+                const savedDrawing = imgItem.drawingDataUrl;
                 if (savedDrawing) {
                     const drawImg = new Image();
                     drawImg.src = savedDrawing;
@@ -93,11 +107,23 @@ export const ImagePaintTool: React.FC<ImagePaintToolProps> = () => {
     // Save drawing to state on change (debounced or on unmount/switch would be better, but explicit save is easier)
     // For now, we save on mouse up.
 
+    // Save drawing to state on change (debounced or on unmount/switch would be better, but explicit save is easier)
+    // For now, we save on mouse up.
+
     const saveDrawingState = () => {
         if (!selectedImageId || !canvasRef.current) return;
         const dataUrl = canvasRef.current.toDataURL();
         setImages(prev => prev.map(img =>
             img.id === selectedImageId ? { ...img, drawingDataUrl: dataUrl, status: 'edited' } : img
+        ));
+    };
+
+    const saveCurrentState = (targetId: string) => {
+        setImages(prev => prev.map(img =>
+            img.id === targetId ? {
+                ...img,
+                transformState: { scale, x: position.x, y: position.y }
+            } : img
         ));
     };
 
@@ -147,14 +173,22 @@ export const ImagePaintTool: React.FC<ImagePaintToolProps> = () => {
     };
 
     // --- Navigation Handlers ---
+    // --- Navigation Handlers ---
+    const handleSelectImage = (id: string) => {
+        if (selectedImageId) saveCurrentState(selectedImageId);
+        setSelectedImageId(id);
+    };
+
     const handlePrevImage = () => {
         if (selectedIndex > 0) {
+            if (selectedImageId) saveCurrentState(selectedImageId);
             setSelectedImageId(images[selectedIndex - 1].id);
         }
     };
 
     const handleNextImage = () => {
         if (selectedIndex < images.length - 1) {
+            if (selectedImageId) saveCurrentState(selectedImageId);
             setSelectedImageId(images[selectedIndex + 1].id);
         }
     };
@@ -424,7 +458,7 @@ export const ImagePaintTool: React.FC<ImagePaintToolProps> = () => {
                                 )}
                                 {images.map(img => (
                                     <div
-                                        key={img.id} onClick={() => setSelectedImageId(img.id)}
+                                        key={img.id} onClick={() => handleSelectImage(img.id)}
                                         className={`group relative flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 border ${selectedImageId === img.id ? 'bg-gray-900 border-gray-900 shadow-md z-0' : 'bg-white border-transparent hover:bg-gray-50'}`}
                                     >
                                         <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0 relative">
@@ -590,6 +624,11 @@ export const ImagePaintTool: React.FC<ImagePaintToolProps> = () => {
                                     backgroundColor: activeTool === 'eraser' ? 'rgba(255,255,255,0.5)' : brushColor,
                                 }}
                             />
+
+                            {/* Helper Text (Added to match Crop Tool) */}
+                            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-xs font-bold pointer-events-none z-30 backdrop-blur-sm">
+                                Scal: {Math.round(scale * 100)}% | Pos: {Math.round(position.x)}, {Math.round(position.y)}
+                            </div>
 
                             {/* The Content: Image + Canvas */}
                             {/* We wrap them in a div that handles the transform */}
