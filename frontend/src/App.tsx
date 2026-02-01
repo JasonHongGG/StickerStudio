@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { UploadSection } from './components/UploadSection';
-// Fix missing imports for tool card - removed duplicate
 import { ConfigSection } from './components/ConfigSection';
 import { ResultSection } from './components/ResultSection';
 import { BackgroundRemovalTool } from './components/BackgroundRemovalTool';
 import { ImageCropTool } from './components/ImageCropTool';
+import { ImagePaintTool } from './components/ImagePaintTool';
 import { SettingsModal } from './components/SettingsModal';
+import { ToolDropdown } from './components/ui/ToolDropdown';
+import { ToolId, TOOLS } from './config/tools';
 import { GeneratedImage, StickerStyle, StickerPackInfo, StickerPlanItem, ReferenceImage } from './types';
 import { STYLES, EMOTIONS, COMMON_ACTIONS, SAME_AS_REF_ID, AUTO_MATCH_ID, CUSTOM_ACTION_ID, CUSTOM_EMOTION_ID } from './constants';
 import { generateSticker } from './services/apiClient';
@@ -13,12 +15,12 @@ import { removeBackground } from './services/imageProcessingService';
 import { composeStyleSheets } from './services/imageCompositor';
 import { saveImageRecord, getAllImages, deleteImageRecord, updateBatchNameInDB, updateImageBatchId } from './services/storageService';
 import { resolveEmotionPrompt, resolveActionPrompt } from './services/prompts';
-import { Sparkles, StopCircle, Palette, Settings, Wrench, ArrowLeft, Plus, ChevronDown, LayoutGrid, Crop } from 'lucide-react';
+import { Sparkles, StopCircle, Palette, Settings, ArrowLeft } from 'lucide-react';
 
 const App: React.FC = () => {
   // --- State ---
   // Page Navigation State
-  const [currentPage, setCurrentPage] = useState<'main' | 'bg-removal' | 'image-crop'>('main');
+  const [currentPage, setCurrentPage] = useState<ToolId | 'main'>('main');
 
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
   const [characterPrompt, setCharacterPrompt] = useState<string>('');
@@ -34,7 +36,7 @@ const App: React.FC = () => {
 
   // App Settings State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isToolsOpen, setIsToolsOpen] = useState(false);
+  // const [isToolsOpen, setIsToolsOpen] = useState(false); // Managed by ToolDropdown
 
   // Generation State
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
@@ -73,6 +75,9 @@ const App: React.FC = () => {
   }, [generatedImages]);
 
   // --- Handlers ---
+  const handleToolSelect = (id: ToolId) => {
+    setCurrentPage(id);
+  };
 
   const handleAddImages = (files: FileList) => {
     const newImages: ReferenceImage[] = Array.from(files).map(file => ({
@@ -421,73 +426,11 @@ const App: React.FC = () => {
               <div className="flex items-center gap-2">
 
                 {/* Tools Dropdown (Main Style) */}
-                <div className="relative">
-                  <button
-                    onClick={() => setIsToolsOpen(!isToolsOpen)}
-                    className={`p-2 rounded-full transition-all ${isToolsOpen ? 'bg-gray-100 text-gray-900' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'}`}
-                    title="實用工具集"
-                  >
-                    <Wrench size={20} />
-                  </button>
-
-                  {/* Dropdown Menu */}
-                  {isToolsOpen && (
-                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-200">
-                      <div className="px-3 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                        可用工具
-                      </div>
-
-                      <button
-                        onClick={() => {
-                          setCurrentPage('bg-removal');
-                          setIsToolsOpen(false);
-                        }}
-                        className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors"
-                      >
-                        <div className="bg-white border border-gray-200 p-2 rounded-lg text-gray-900">
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                            <polyline points="21 15 16 10 5 21"></polyline>
-                            <path d="M12 12l2 2 4-4"></path>
-                          </svg>
-                        </div>
-                        <div>
-                          <div className="font-bold text-gray-800 text-sm">批量去背工具</div>
-                          <div className="text-xs text-gray-500">自動移除背景</div>
-                        </div>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setCurrentPage('image-crop');
-                          setIsToolsOpen(false);
-                        }}
-                        className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors"
-                      >
-                        <div className="bg-white border border-gray-200 p-2 rounded-lg text-gray-900">
-                          <Crop size={20} />
-                        </div>
-                        <div>
-                          <div className="font-bold text-gray-800 text-sm">圖片裁切工具</div>
-                          <div className="text-xs text-gray-500">批量裁切圖片</div>
-                        </div>
-                      </button>
-
-                      <div className="border-t border-gray-100 my-1"></div>
-
-                      <div className="px-4 py-3 flex items-center gap-3 opacity-50 cursor-not-allowed">
-                        <div className="bg-gray-100 p-2 rounded-lg text-gray-400">
-                          <Plus size={20} />
-                        </div>
-                        <div>
-                          <div className="font-bold text-gray-400 text-sm">更多工具開發中</div>
-                          <div className="text-xs text-gray-400">敬請期待</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <ToolDropdown
+                  viewMode="main"
+                  currentToolId={undefined}
+                  onSelect={handleToolSelect}
+                />
 
                 <button
                   onClick={() => setIsSettingsOpen(true)}
@@ -515,83 +458,20 @@ const App: React.FC = () => {
 
                 <div className="flex items-center gap-2">
                   <h1 className="text-lg font-bold text-gray-900">
-                    {currentPage === 'bg-removal' ? '批量去背工具' : '圖片裁切工具'}
+                    {TOOLS.find(t => t.id === currentPage)?.name}
                   </h1>
-                  <span className="bg-black text-white text-[10px] font-bold px-1.5 py-0.5 rounded leading-none">BETA</span>
+                  <span className="bg-black text-white text-[10px] font-bold px-1.5 py-0.5 rounded leading-none">
+                    {TOOLS.find(t => t.id === currentPage)?.status === 'new' ? 'NEW' : 'BETA'}
+                  </span>
                 </div>
               </div>
 
-              {/* Right: Tools Switcher Only */}
-              <div className="relative">
-                <button
-                  onClick={() => setIsToolsOpen(!isToolsOpen)}
-                  className="flex items-center gap-2 px-3 py-2 text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all"
-                >
-                  <LayoutGrid size={20} />
-                  <span className="font-medium text-sm">切換工具</span>
-                  <ChevronDown size={14} className={`transition-transform duration-200 ${isToolsOpen ? 'rotate-180' : ''}`} />
-                </button>
-
-                {/* Tool-specific Dropdown */}
-                {isToolsOpen && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-200">
-                    <div className="px-3 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                      快速切換
-                    </div>
-                    <button
-                      onClick={() => {
-                        setCurrentPage('bg-removal');
-                        setIsToolsOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors"
-                    >
-                      <div className="bg-white border border-gray-200 p-2 rounded-lg text-gray-900 text-black">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                          <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                          <polyline points="21 15 16 10 5 21"></polyline>
-                          <path d="M12 12l2 2 4-4"></path>
-                        </svg>
-                      </div>
-                      <div>
-                        <div className="font-bold text-gray-900 text-sm">批量去背工具</div>
-                        <div className={`text-xs font-medium ${currentPage === 'bg-removal' ? 'text-black' : 'text-gray-400'}`}>
-                          {currentPage === 'bg-removal' ? '使用中' : '自動移除背景'}
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setCurrentPage('image-crop');
-                        setIsToolsOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors"
-                    >
-                      <div className="bg-white border border-gray-200 p-2 rounded-lg text-gray-900 text-black">
-                        <Crop size={18} />
-                      </div>
-                      <div>
-                        <div className="font-bold text-gray-900 text-sm">圖片裁切工具</div>
-                        <div className={`text-xs font-medium ${currentPage === 'image-crop' ? 'text-black' : 'text-gray-400'}`}>
-                          {currentPage === 'image-crop' ? '使用中' : '批量裁切圖片'}
-                        </div>
-                      </div>
-                    </button>
-
-                    <div className="border-t border-gray-100 my-1"></div>
-
-                    <div className="px-4 py-3 flex items-center gap-3 opacity-50 cursor-not-allowed">
-                      <div className="bg-gray-100 p-2 rounded-lg text-gray-400">
-                        <Plus size={18} />
-                      </div>
-                      <div>
-                        <div className="font-bold text-gray-400 text-sm">更多工具開發中</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+              {/* Right: Tools Switcher Using Component */}
+              <ToolDropdown
+                viewMode="tool"
+                currentToolId={currentPage as ToolId}
+                onSelect={handleToolSelect}
+              />
             </>
           )}
         </div>
@@ -684,19 +564,24 @@ const App: React.FC = () => {
         )
       }
 
-
-
-      {/* Background Removal Tool Page - Always mounted, hidden via CSS */}
+      {/* Background Removal Tool Page */}
       <div className={`flex-1 w-full overflow-hidden px-4 lg:px-6 py-8 ${currentPage === 'bg-removal' ? '' : 'hidden'}`}>
         <div className="max-w-[1800px] mx-auto h-full">
           <BackgroundRemovalTool />
         </div>
       </div>
 
-      {/* Image Crop Tool Page - Always mounted, hidden via CSS */}
+      {/* Image Crop Tool Page */}
       <div className={`flex-1 w-full overflow-hidden px-4 lg:px-6 py-8 ${currentPage === 'image-crop' ? '' : 'hidden'}`}>
         <div className="max-w-[1800px] mx-auto h-full">
           <ImageCropTool />
+        </div>
+      </div>
+
+      {/* Image Paint Tool Page */}
+      <div className={`flex-1 w-full overflow-hidden px-4 lg:px-6 py-8 ${currentPage === 'image-paint' ? '' : 'hidden'}`}>
+        <div className="max-w-[1800px] mx-auto h-full">
+          <ImagePaintTool />
         </div>
       </div>
 
@@ -706,7 +591,8 @@ const App: React.FC = () => {
         onClose={() => setIsSettingsOpen(false)}
         onSave={handleSaveSettings}
       />
-    </div>
+
+    </div >
   );
 };
 

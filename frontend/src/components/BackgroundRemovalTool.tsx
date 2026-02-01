@@ -305,7 +305,6 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
                     {images.length === 0 ? (
                         /* MODE A: EMPTY STATE (Big Upload Area) */
                         <div className="flex-1 flex flex-col p-5">
-                            <div className="text-xs font-bold text-gray-900 tracking-wider mb-4">SOURCE FILES</div>
                             <div
                                 onDragOver={handleDragOver}
                                 onDragLeave={handleDragLeave}

@@ -8,21 +8,7 @@ import { SAME_AS_REF_ID, AUTO_MATCH_ID, EMOTIONS, COMMON_ACTIONS } from "../cons
 
 // Define strict interfaces for frontend usage if not available elsewhere
 // In frontend, we might pass these as part of the plan object
-interface GenerateStickerRequest {
-    imageBase64?: string | null;
-    additionalImageBase64?: string[];
-    characterDescription?: string;
-    plan: {
-        emotionId: string;
-        emotionPrompt: string;
-        actionId: string;
-        actionPrompt: string;
-        caption: string;
-    };
-    styleSuffix?: string;
-    theme?: string;
-    refinePrompt?: string;
-}
+
 
 // ============================================================
 // UTILITY: Resolve Emotion ID to English prompt text
