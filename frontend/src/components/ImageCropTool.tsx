@@ -31,11 +31,11 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
     // Transform State (Pan & Zoom)
     const [scale, setScale] = useState(1);
     const [position, setPosition] = useState({ x: 0, y: 0 });
-    const isDragging = useRef(false);
+    const isPanning = useRef(false);
     const lastMousePos = useRef({ x: 0, y: 0 });
 
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [isDragOver, setIsDragOver] = useState(false); // For file drop zone
+    const [isDragging, setIsDragging] = useState(false); // For file drop zone
 
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -103,17 +103,17 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
         setImages(prev => [...prev, ...newImages]);
     };
 
-    const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragOver(true); };
+    const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
     const handleDragLeave = (e: React.DragEvent) => {
         e.preventDefault();
         // Prevent flickering: Only disable if we actually leave the container (not entering a child)
         if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-            setIsDragOver(false);
+            setIsDragging(false);
         }
     };
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
-        setIsDragOver(false);
+        setIsDragging(false);
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             addImages(e.dataTransfer.files);
         }
@@ -196,12 +196,12 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
 
     const handleMouseDown = (e: React.MouseEvent) => {
         if (!selectedImage || selectedImage.locked) return;
-        isDragging.current = true;
+        isPanning.current = true;
         lastMousePos.current = { x: e.clientX, y: e.clientY };
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
-        if (!isDragging.current || !selectedImage) return;
+        if (!isPanning.current || !selectedImage) return;
 
         const deltaX = e.clientX - lastMousePos.current.x;
         const deltaY = e.clientY - lastMousePos.current.y;
@@ -211,7 +211,7 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
     };
 
     const handleMouseUp = () => {
-        isDragging.current = false;
+        isPanning.current = false;
     };
 
     // --- Processing ---
@@ -391,10 +391,10 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
                                 onClick={() => fileInputRef.current?.click()}
                                 className={`
                                     flex-1 flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-2xl cursor-pointer transition-all gap-4
-                                    ${isDragOver ? 'border-black bg-gray-50 scale-[0.99]' : 'border-gray-200 hover:border-black hover:bg-gray-50'}
+                                    ${isDragging ? 'border-black bg-gray-50 scale-[0.99]' : 'border-gray-200 hover:border-black hover:bg-gray-50'}
                                 `}
                             >
-                                <div className={`p-4 rounded-full transition-colors ${isDragOver ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 group-hover:bg-black group-hover:text-white'}`}>
+                                <div className={`p-4 rounded-full transition-colors ${isDragging ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 group-hover:bg-black group-hover:text-white'}`}>
                                     <Upload size={24} />
                                 </div>
                                 <div className="text-center">
@@ -432,12 +432,12 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
 
                             {/* Scrollable Queue List */}
                             <div
-                                className={`flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent p-3 space-y-2 relative transition-colors ${isDragOver ? 'bg-blue-50/50' : ''}`}
+                                className={`flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent p-3 space-y-2 relative transition-colors ${isDragging ? 'bg-blue-50/50' : ''}`}
                                 onDragOver={handleDragOver}
                                 onDragLeave={handleDragLeave}
                                 onDrop={handleDrop}
                             >
-                                {isDragOver && (
+                                {isDragging && (
                                     <div className="absolute inset-0 z-50 flex items-center justify-center bg-blue-500/10 backdrop-blur-[2px] border-2 border-dashed border-blue-500 rounded-xl m-2 pointer-events-none">
                                         <div className="bg-white px-4 py-2 rounded-full shadow-lg text-blue-600 font-bold text-sm flex items-center gap-2">
                                             <Upload size={16} />
