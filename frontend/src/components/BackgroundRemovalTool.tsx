@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Upload, X, Download, Play, Check, AlertCircle, Trash2, ArrowRight, Plus, ChevronsLeft, ChevronsRight, Image as ImageIcon, Settings } from 'lucide-react';
+import { ArrowLeft, Upload, X, Download, Play, Check, AlertCircle, Trash2, ArrowRight, Plus, ChevronsLeft, ChevronsRight, Image as ImageIcon, Settings, Pipette } from 'lucide-react';
 import { removeBackground } from '../services/imageProcessingService';
 import { removeBackgroundWithAI, checkComfyUIHealth } from '../services/bgRemovalApiClient';
 import JSZip from 'jszip';
@@ -39,6 +39,10 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
     });
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isAIAvailable, setIsAIAvailable] = useState<boolean | null>(null);
+
+    // Algorithm Settings
+    const [keyColor, setKeyColor] = useState('#00FF00'); // Default Green
+    const [isEyedropperActive, setIsEyedropperActive] = useState(false);
 
     // Auto-select first image when added
     useEffect(() => {
@@ -81,6 +85,10 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
     };
 
     const handleMouseDown = (e: React.MouseEvent) => {
+        if (isEyedropperActive) {
+            handleCanvasClick(e);
+            return;
+        }
         if (selectedImage?.status !== 'success') return;
         isDraggingSlider.current = true;
         handleMouseMove(e.clientX);
@@ -208,7 +216,12 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
                     resultUrl = `data:image/png;base64,${resultBase64}`;
                 } else {
                     // Use client-side algorithm
-                    resultUrl = await removeBackground(dataUrl);
+                    // Pass keyColor if it's not the default green? Or always pass it.
+                    // The service now handles keyColor option.
+                    resultUrl = await removeBackground(dataUrl, {
+                        keyColor: keyColor,
+                        similarity: 40 // Keep default for now, could expose as slider later
+                    });
                 }
 
                 setImages(prev => prev.map(img => img.id === target.id ? {
@@ -277,6 +290,67 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
         if (!selectedImageId) return;
         const idx = images.findIndex(img => img.id === selectedImageId);
         if (idx < images.length - 1) setSelectedImageId(images[idx + 1].id);
+    };
+
+    const handleCanvasClick = (e: React.MouseEvent) => {
+        if (!isEyedropperActive || !selectedImage) return;
+
+        // Get color from the image at click position
+        // We need to access the image data. 
+        // Simplest way: draw to temporary canvas
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.src = selectedImage.previewUrl;
+
+        // We need to map client coordinates to image coordinates
+        if (!containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+
+        // Calculate relative position (0-1)
+        // Note: The image is object-contain, so it might not fill the rect.
+        // For accurate picking on "contain" images, we need to know the rendered size.
+        // This is complex. 
+        // Simpler approach: 
+        // Just rely on the browser's cursor for now? No, we need the HEX.
+
+        // Let's assume the user clicks on the visible part.
+        // We can draw the image to a canvas of the same size as the container?
+        // Or better: Use the same logic as ImagePaintTool - draw the image to an offscreen canvas.
+
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                // Calculate "contain" fit
+                const imgRatio = img.naturalWidth / img.naturalHeight;
+                const containerRatio = rect.width / rect.height;
+                let drawW, drawH, dx, dy;
+
+                if (imgRatio > containerRatio) {
+                    drawW = rect.width;
+                    drawH = rect.width / imgRatio;
+                    dx = 0;
+                    dy = (rect.height - drawH) / 2;
+                } else {
+                    drawH = rect.height;
+                    drawW = rect.height * imgRatio;
+                    dy = 0;
+                    dx = (rect.width - drawW) / 2;
+                }
+
+                ctx.drawImage(img, dx, dy, drawW, drawH);
+
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const p = ctx.getImageData(x, y, 1, 1).data;
+                const hex = "#" + ((1 << 24) + (p[0] << 16) + (p[1] << 8) + p[2]).toString(16).slice(1);
+
+                setKeyColor(hex);
+                setIsEyedropperActive(false); // Auto-exit mode after pick
+            }
+        };
     };
 
     // --- Render ---
@@ -477,6 +551,26 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
                     )}
 
                     {/* Settings Button */}
+                    {/* Settings Button */}
+                    {/* Eyedropper & Color Swatch (Only for Algorithm Mode) */}
+                    {processingMode === 'algorithm' && (
+                        <div className="flex items-center gap-2 mr-2 bg-white/80 backdrop-blur-md rounded-full px-2 py-1.5 shadow-lg border border-gray-200/50">
+                            <button
+                                onClick={() => setIsEyedropperActive(!isEyedropperActive)}
+                                className={`p-1.5 rounded-full transition-all ${isEyedropperActive ? 'bg-black text-white' : 'text-gray-500 hover:text-black'}`}
+                                title="Pick Background Color"
+                            >
+                                <Pipette size={16} />
+                            </button>
+                            <div className="w-px h-4 bg-gray-300"></div>
+                            <div
+                                className="w-5 h-5 rounded-full border border-gray-200 shadow-sm"
+                                style={{ backgroundColor: keyColor }}
+                                title={`Key Color: ${keyColor}`}
+                            ></div>
+                        </div>
+                    )}
+
                     <div className="relative">
                         <button
                             onClick={() => setIsSettingsOpen(!isSettingsOpen)}
@@ -557,7 +651,7 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
 
                             {/* Comparison Slider Container */}
                             <div
-                                className="relative shadow-2xl rounded-lg overflow-hidden bg-white cursor-ew-resize select-none"
+                                className={`relative shadow-2xl rounded-lg overflow-hidden bg-white select-none ${isEyedropperActive ? 'cursor-crosshair' : 'cursor-ew-resize'}`}
                                 ref={containerRef}
                                 onMouseDown={handleMouseDown}
                                 onTouchStart={handleTouchStart}
@@ -571,7 +665,8 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
                                 />
 
                                 {/* 1. Result Layer (Bottom) - Absolute, fills container */}
-                                <div className="absolute inset-0 flex items-center justify-center">
+                                {/* Hide Result Layer if Eyedropper is active to show full original for picking */}
+                                <div className={`absolute inset-0 flex items-center justify-center ${isEyedropperActive ? 'opacity-0' : 'opacity-100'}`}>
                                     <img
                                         src={selectedImage.status === 'success' && selectedImage.resultUrl ? selectedImage.resultUrl : selectedImage.previewUrl}
                                         className="w-full h-full object-contain pointer-events-none select-none"
@@ -581,9 +676,10 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
                                 </div>
 
                                 {/* 2. Original Layer (Top) - Clipped Overlay */}
+                                {/* If Eyedropper is active, show Full Original (no clip) to allow picking from anywhere */}
                                 <div
                                     className="absolute inset-0 overflow-hidden pointer-events-none select-none"
-                                    style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
+                                    style={{ clipPath: isEyedropperActive ? 'inset(0 0 0 0)' : `inset(0 ${100 - sliderPosition}% 0 0)` }}
                                 >
                                     <img
                                         src={selectedImage.previewUrl}

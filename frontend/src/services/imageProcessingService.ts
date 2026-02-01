@@ -23,32 +23,23 @@ function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: n
         h /= 6;
     }
 
-    return { h: h * 360, s, l };
+    return { h: h * 360, s, l }; // h in 0-360, s/l in 0-1
 }
 
-// Check if a pixel matches the Green Screen criteria
-function isGreenPixel(r: number, g: number, b: number): boolean {
-    // 1. Pure Green Fast Pass: Euclidean distance to (0, 255, 0) < 18
-    const dist = Math.sqrt(Math.pow(r - 0, 2) + Math.pow(g - 255, 2) + Math.pow(b - 0, 2));
-    if (dist < 18) return true;
-
-    // 2. Loose Conditions
-    const { h, s, l } = rgbToHsl(r, g, b);
-
-    const isHueMatch = h >= 60 && h <= 185;
-    const isSatMatch = s >= 0.22;
-    const isLightMatch = l >= 0.12 && l <= 0.95;
-    const isGreenDominant = (g > r + 12) && (g > b + 12);
-
-    if (isHueMatch && isSatMatch && isLightMatch && isGreenDominant) {
-        return true;
-    }
-
-    return false;
+// Helper: Parse Hex to RGB
+function hexToRgb(hex: string): { r: number, g: number, b: number } {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : { r: 0, g: 255, b: 0 }; // Default Green
 }
 
 export interface BackgroundRemovalOptions {
     fitToStickerSize?: boolean;
+    keyColor?: string; // Hex code, e.g. "#00FF00"
+    similarity?: number; // 0-100
 }
 
 // Core Removal Function
@@ -56,96 +47,117 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.crossOrigin = 'Anonymous';
+
+        // 1. Prepare Key Color in HSL
+        const keyColorHex = options.keyColor || '#00FF00';
+        const keyRgb = hexToRgb(keyColorHex);
+        const keyHsl = rgbToHsl(keyRgb.r, keyRgb.g, keyRgb.b);
+
+        // Parameters
+        const userSimilarity = options.similarity !== undefined ? options.similarity : 40;
+
+        // Hue Tolerance: How far from the Key Hue is allowed?
+        // 40/100 similarity -> +/- 40 degrees? 
+        // Original Green was ~60-185 (Range ~125, so +/- 60).
+        // Let's base it on similarity. Max reasonable deviation is ~60 degrees.
+        const hueTol = 20 + (userSimilarity * 0.6); // 20...80 degrees range
+
+        // Saturation Threshold: How "colored" must it be?
+        // Original Green was > 0.22. If Key is very pale, this should be lower.
+        // If Key is highly saturated, we expect bg to be saturated.
+        const satThresh = Math.max(0.1, keyHsl.s * 0.5); // At least 10% saturation, or half of key
+
+        // Lightness Range:
+        // Original Green was 0.12 - 0.95.
+        const lMin = 0.1;
+        const lMax = 0.98;
+
         img.onload = () => {
             const canvas = document.createElement('canvas');
 
-            // Determine dimensions based on options
+            // Determine dimensions
             let w, h, dx = 0, dy = 0, drawW, drawH;
 
             if (options.fitToStickerSize) {
-                // Sticker Mode: Fixed 370x320 with Aspect Fit & Green Padding
-                w = 370;
-                h = 320;
-                canvas.width = w;
-                canvas.height = h;
-
-                const ctx = canvas.getContext('2d');
-                if (!ctx) { reject('Canvas context not available'); return; }
-
-                // 1. Fill with pure Green (#00FF00) for letterboxing merging
-                ctx.fillStyle = '#00FF00';
+                w = 370; h = 320;
+                canvas.width = w; canvas.height = h;
+                const ctx = canvas.getContext('2d')!;
+                // Fill with key color
+                ctx.fillStyle = keyColorHex;
                 ctx.fillRect(0, 0, w, h);
-
-                // 2. Aspect Fit Logic
+                // Fit
                 const imgRatio = img.width / img.height;
                 const targetRatio = w / h;
-
                 if (imgRatio > targetRatio) {
-                    drawW = w;
-                    drawH = w / imgRatio;
-                    dx = 0;
-                    dy = (h - drawH) / 2;
+                    drawW = w; drawH = w / imgRatio; dx = 0; dy = (h - drawH) / 2;
                 } else {
-                    drawH = h;
-                    drawW = h * imgRatio;
-                    dy = 0;
-                    dx = (w - drawW) / 2;
+                    drawH = h; drawW = h * imgRatio; dy = 0; dx = (w - drawW) / 2;
                 }
-
-                // 3. Draw image centered
                 ctx.drawImage(img, dx, dy, drawW, drawH);
-
             } else {
-                // General Tool Mode: Original Size
-                w = img.width;
-                h = img.height;
-                canvas.width = w;
-                canvas.height = h;
-
-                const ctx = canvas.getContext('2d');
-                if (!ctx) { reject('Canvas context not available'); return; }
-
-                // Draw directly
+                w = img.width; h = img.height;
+                canvas.width = w; canvas.height = h;
+                const ctx = canvas.getContext('2d')!;
                 ctx.drawImage(img, 0, 0);
             }
 
-            const ctx = canvas.getContext('2d')!; // Context assured exist
-
+            const ctx = canvas.getContext('2d')!;
             const imageData = ctx.getImageData(0, 0, w, h);
             const data = imageData.data;
+            const len = w * h;
 
-            // --- 1. Flood Fill from Borders ---
-            // We will mark background pixels in a mask.
-            // 0 = unknown, 1 = background, 2 = foreground
-            const mask = new Uint8Array(w * h);
+            const mask = new Uint8Array(len); // 0:unknown, 1:bg, 2:fg
             const queue: number[] = [];
 
-            // Add border pixels to queue
+            // Helper: Check Pixel
+            const isMatch = (idx: number, isStrict: boolean = false): boolean => {
+                const r = data[idx * 4];
+                const g = data[idx * 4 + 1];
+                const b = data[idx * 4 + 2];
+
+                // 1. Fast Euclidean Pass for exact matches (speedup)
+                // If it's very close in RGB, it's definitely a match.
+                if (Math.abs(r - keyRgb.r) < 30 && Math.abs(g - keyRgb.g) < 30 && Math.abs(b - keyRgb.b) < 30) {
+                    return true;
+                }
+
+                // 2. HSL Check
+                const { h, s, l } = rgbToHsl(r, g, b);
+
+                // Check Lightness & Saturation bounds
+                if (l < lMin || l > lMax) return false;
+                if (s < satThresh) return false;
+
+                // Check Hue Distance (Circular)
+                let hueDist = Math.abs(h - keyHsl.h);
+                if (hueDist > 180) hueDist = 360 - hueDist;
+
+                const tolerance = isStrict ? hueTol * 0.7 : hueTol;
+                return hueDist <= tolerance;
+            };
+
+            // Seed Queue with Borders
             for (let x = 0; x < w; x++) {
-                queue.push(0 * w + x); // Top row
-                queue.push((h - 1) * w + x); // Bottom row
+                queue.push(0 * w + x); // Top
+                queue.push((h - 1) * w + x); // Bottom
             }
             for (let y = 0; y < h; y++) {
-                queue.push(y * w + 0); // Left col
-                queue.push(y * w + (w - 1)); // Right col
+                queue.push(y * w + 0); // Left
+                queue.push(y * w + (w - 1)); // Right
             }
 
-            const visited = new Uint8Array(w * h); // track visited for BFS
+            const visited = new Uint8Array(len);
 
+            // --- 1. Flood Fill ---
             while (queue.length > 0) {
                 const idx = queue.shift()!;
                 if (visited[idx]) continue;
                 visited[idx] = 1;
 
-                const r = data[idx * 4];
-                const g = data[idx * 4 + 1];
-                const b = data[idx * 4 + 2];
+                if (isMatch(idx)) {
+                    mask[idx] = 1;
+                    data[idx * 4 + 3] = 0;
 
-                if (isGreenPixel(r, g, b)) {
-                    mask[idx] = 1; // It is background
-                    data[idx * 4 + 3] = 0; // Make transparent immediately
-
-                    // Add neighbors
                     const x = idx % w;
                     const y = Math.floor(idx / w);
 
@@ -154,122 +166,71 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
                     if (y > 0) queue.push(idx - w);
                     if (y < h - 1) queue.push(idx + w);
                 } else {
-                    mask[idx] = 2; // It is foreground
+                    mask[idx] = 2; // Edge/Foreground
                 }
             }
 
-            // --- 1.5. Island Removal (Holes) ---
-            // Scan for isolated green parts (e.g. gaps between arms) that weren't reached by border fill
-            for (let i = 0; i < w * h; i++) {
-                if (mask[i] === 1) continue; // Already removed
+            // --- 3. Generic Spill Suppression ---
+            // If edge pixel matches Hue somewhat, desaturate it.
+            for (let i = 0; i < len; i++) {
+                if (data[i * 4 + 3] === 0) continue;
 
-                const r = data[i * 4];
-                const g = data[i * 4 + 1];
-                const b = data[i * 4 + 2];
+                const x = i % w;
+                const y = Math.floor(i / w);
 
-                // Seed check: Must be relatively pure green to start a hole removal
-                // This prevents accidental deletion of green-ish clothing parts unless they are very green
-                const dist = Math.sqrt(Math.pow(r - 0, 2) + Math.pow(g - 255, 2) + Math.pow(b - 0, 2));
+                let isEdge = false;
+                if (x > 0 && data[i * 4 - 4 + 3] === 0) isEdge = true;
+                else if (x < w - 1 && data[i * 4 + 4 + 3] === 0) isEdge = true;
+                else if (y > 0 && data[(i - w) * 4 + 3] === 0) isEdge = true;
+                else if (y < h - 1 && data[(i + w) * 4 + 3] === 0) isEdge = true;
 
-                if (dist < 35) { // Threshold for recognizing a green hole seed
-                    queue.push(i);
+                if (isEdge) {
+                    const r = data[i * 4];
+                    const g = data[i * 4 + 1];
+                    const b = data[i * 4 + 2];
+                    const { h } = rgbToHsl(r, g, b); // We usually need s/l too but h is key
 
-                    while (queue.length > 0) {
-                        const idx = queue.shift()!;
-                        if (mask[idx] === 1) continue;
+                    let hueDist = Math.abs(h - keyHsl.h);
+                    if (hueDist > 180) hueDist = 360 - hueDist;
 
-                        const cr = data[idx * 4];
-                        const cg = data[idx * 4 + 1];
-                        const cb = data[idx * 4 + 2];
-
-                        if (isGreenPixel(cr, cg, cb)) {
-                            mask[idx] = 1;
-                            data[idx * 4 + 3] = 0;
-
-                            const x = idx % w;
-                            const y = Math.floor(idx / w);
-
-                            if (x > 0 && mask[idx - 1] !== 1) queue.push(idx - 1);
-                            if (x < w - 1 && mask[idx + 1] !== 1) queue.push(idx + 1);
-                            if (y > 0 && mask[idx - w] !== 1) queue.push(idx - w);
-                            if (y < h - 1 && mask[idx + w] !== 1) queue.push(idx + w);
-                        }
+                    if (hueDist < 30) {
+                        // Desaturate slightly
+                        const gray = (r + g + b) / 3;
+                        data[i * 4] = (data[i * 4] + gray) / 2;
+                        data[i * 4 + 1] = (data[i * 4 + 1] + gray) / 2;
+                        data[i * 4 + 2] = (data[i * 4 + 2] + gray) / 2;
                     }
                 }
             }
 
-            // --- 2. White Stroke Protection & Spill Suppression ---
-            // Iterate through the whole image to fix edges
-            for (let y = 0; y < h; y++) {
-                for (let x = 0; x < w; x++) {
-                    const idx = y * w + x;
-
-                    // If it was marked as foreground (or not reached by flood fill but is inside), check for spill
-                    if (mask[idx] !== 1) {
-                        const r = data[idx * 4];
-                        const g = data[idx * 4 + 1];
-                        const b = data[idx * 4 + 2];
-                        const a = data[idx * 4 + 3];
-
-                        if (a === 0) continue; // Already removed
-
-                        // Is this pixel on the edge of transparency?
-                        let isEdge = false;
-                        // Check neighbors for transparency
-                        if (x > 0 && data[(idx - 1) * 4 + 3] === 0) isEdge = true;
-                        else if (x < w - 1 && data[(idx + 1) * 4 + 3] === 0) isEdge = true;
-                        else if (y > 0 && data[(idx - w) * 4 + 3] === 0) isEdge = true;
-                        else if (y < h - 1 && data[(idx + w) * 4 + 3] === 0) isEdge = true;
-
-                        if (isEdge) {
-                            // Spill Suppression: 
-                            // If Green is still dominant or reflecting, reduce G or boost R/B
-                            if (g > r && g > b) {
-                                // Simple spill removal: set G to average of R and B
-                                // Or reduce G to max(R, B)
-                                data[idx * 4 + 1] = Math.max(r, b);
-                            }
-                        }
-                    }
-                }
-            }
-
-            // --- 3. Feathering (Alpha Smoothing) ---
-            // Simple box blur on alpha channel for edges
-            // We'll create a copy to read from
+            // --- 4. Feathering (Alpha Smoothing) ---
             const copyData = new Uint8ClampedArray(data);
-
             for (let y = 1; y < h - 1; y++) {
                 for (let x = 1; x < w - 1; x++) {
                     const idx = y * w + x;
 
-                    // Only smooth if we are near the edge (0 vs 255 transition)
-                    // To detect edge, look at neighbors in copyData
-                    let hasTransparentNeighbor = false;
-                    let hasOpaqueNeighbor = false;
+                    let hasTransparent = false;
+                    let hasOpaque = false;
 
-                    const neighbors = [
-                        (y - 1) * w + x, (y + 1) * w + x, y * w + (x - 1), y * w + (x + 1)
-                    ];
-
-                    for (const nIdx of neighbors) {
-                        if (copyData[nIdx * 4 + 3] === 0) hasTransparentNeighbor = true;
-                        else hasOpaqueNeighbor = true;
+                    if (copyData[(y - 1) * w * 4 + x * 4 + 3] === 0 || copyData[(y + 1) * w * 4 + x * 4 + 3] === 0 ||
+                        copyData[y * w * 4 + (x - 1) * 4 + 3] === 0 || copyData[y * w * 4 + (x + 1) * 4 + 3] === 0) {
+                        hasTransparent = true;
+                    }
+                    if (copyData[(y - 1) * w * 4 + x * 4 + 3] > 0 || copyData[(y + 1) * w * 4 + x * 4 + 3] > 0 ||
+                        copyData[y * w * 4 + (x - 1) * 4 + 3] > 0 || copyData[y * w * 4 + (x + 1) * 4 + 3] > 0) {
+                        hasOpaque = true;
                     }
 
-                    if (hasTransparentNeighbor && hasOpaqueNeighbor) {
-                        // Apply simple smoothing to alpha
-                        // Average alpha of 3x3 kernel
+                    if (hasTransparent && hasOpaque) {
                         let sumA = 0;
-                        let count = 0;
+                        let c = 0;
                         for (let dy = -1; dy <= 1; dy++) {
                             for (let dx = -1; dx <= 1; dx++) {
-                                const nIdx = (y + dy) * w + (x + dx);
-                                sumA += copyData[nIdx * 4 + 3];
-                                count++;
+                                sumA += copyData[((y + dy) * w + (x + dx)) * 4 + 3];
+                                c++;
                             }
                         }
-                        data[idx * 4 + 3] = sumA / count;
+                        data[idx * 4 + 3] = sumA / c;
                     }
                 }
             }
