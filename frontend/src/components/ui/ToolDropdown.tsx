@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { TOOLS, ToolId, FUTURE_TOOLS } from '../../config/tools';
 import { ChevronDown, LayoutGrid, Wrench } from 'lucide-react';
 
@@ -10,14 +10,32 @@ interface ToolDropdownProps {
 
 export const ToolDropdown: React.FC<ToolDropdownProps> = ({ currentToolId, onSelect, viewMode }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
     const handleSelect = (id: ToolId) => {
         onSelect(id);
         setIsOpen(false);
     };
 
+    // Close on click outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isOpen]);
+
     return (
-        <div className="relative">
+        <div className="relative" ref={dropdownRef}>
             {/* Trigger Button */}
             {viewMode === 'main' ? (
                 <button

@@ -537,20 +537,22 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
                     {selectedImage ? (
                         <>
                             {/* Nav Buttons */}
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handlePrevImage(); }}
-                                className="absolute left-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 active:scale-95 border border-white/10 z-30 pointer-events-auto"
-                                disabled={images.indexOf(selectedImage) === 0}
-                            >
-                                <ArrowLeft size={24} />
-                            </button>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleNextImage(); }}
-                                className="absolute right-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 active:scale-95 border border-white/10 z-30 pointer-events-auto"
-                                disabled={images.indexOf(selectedImage) === images.length - 1}
-                            >
-                                <ArrowRight size={24} />
-                            </button>
+                            {images.indexOf(selectedImage) > 0 && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handlePrevImage(); }}
+                                    className="absolute left-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 active:scale-95 border border-white/10 z-30 pointer-events-auto"
+                                >
+                                    <ArrowLeft size={24} />
+                                </button>
+                            )}
+                            {images.indexOf(selectedImage) < images.length - 1 && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleNextImage(); }}
+                                    className="absolute right-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 active:scale-95 border border-white/10 z-30 pointer-events-auto"
+                                >
+                                    <ArrowRight size={24} />
+                                </button>
+                            )}
                             {/* Image Layer (Transformed) */}
                             <img
                                 src={selectedImage.previewUrl}

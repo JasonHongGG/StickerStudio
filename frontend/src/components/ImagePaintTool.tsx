@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, X, Trash2, Plus, Archive, Pipette, Palette, Brush, ChevronLeft, ChevronRight, Download, Eraser } from 'lucide-react';
+import { Upload, X, Trash2, Plus, Archive, Pipette, Palette, Brush, ArrowLeft, ArrowRight, Download, Eraser } from 'lucide-react';
 import JSZip from 'jszip';
 import { CustomColorPicker } from './ui/CustomColorPicker';
 
@@ -577,39 +577,27 @@ export const ImagePaintTool: React.FC<ImagePaintToolProps> = () => {
                     {selectedImage ? (
                         <>
                             {/* NEW: Navigation Buttons */}
-                            {images.length > 1 && (
-                                <>
-                                    <button
-                                        onClick={handlePrevImage}
-                                        onMouseDown={(e) => e.stopPropagation()}
-                                        disabled={selectedIndex === 0}
-                                        className="absolute left-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full backdrop-blur-md transition-all disabled:opacity-0 z-40 border border-white/10"
-                                    >
-                                        <ChevronLeft size={24} />
-                                    </button>
-                                    <button
-                                        onClick={handleNextImage}
-                                        onMouseDown={(e) => e.stopPropagation()}
-                                        disabled={selectedIndex === images.length - 1}
-                                        className="absolute right-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full backdrop-blur-md transition-all disabled:opacity-0 z-40 border border-white/10"
-                                    >
-                                        <ChevronRight size={24} />
-                                    </button>
-                                </>
+                            {/* NEW: Navigation Buttons */}
+                            {selectedIndex > 0 && (
+                                <button
+                                    onClick={handlePrevImage}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    className="absolute left-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 active:scale-95 border border-white/10 z-40"
+                                >
+                                    <ArrowLeft size={24} />
+                                </button>
+                            )}
+                            {selectedIndex < images.length - 1 && (
+                                <button
+                                    onClick={handleNextImage}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    className="absolute right-6 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 active:scale-95 border border-white/10 z-40"
+                                >
+                                    <ArrowRight size={24} />
+                                </button>
                             )}
 
-                            {/* NEW: Single Download Button (Top Right) */}
-                            <div className="absolute top-6 right-6 z-40 flex items-center gap-2">
-                                <button
-                                    onClick={handleDownloadSingle}
-                                    onMouseDown={(e) => e.stopPropagation()}
-                                    className="bg-white/10 hover:bg-white/20 text-white p-2.5 rounded-full backdrop-blur-md transition-all border border-white/10 shadow-lg"
-                                    title="Download Current Image"
-                                >
-                                    <Download size={20} />
-                                </button>
-                                {activeTool === 'eyedropper' && <div className="bg-black text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg animate-pulse">Eyedropper Active</div>}
-                            </div>
+
 
                             {/* Floating Cursor for Brush */}
                             <div
@@ -625,10 +613,7 @@ export const ImagePaintTool: React.FC<ImagePaintToolProps> = () => {
                                 }}
                             />
 
-                            {/* Helper Text (Added to match Crop Tool) */}
-                            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-xs font-bold pointer-events-none z-30 backdrop-blur-sm">
-                                Scal: {Math.round(scale * 100)}% | Pos: {Math.round(position.x)}, {Math.round(position.y)}
-                            </div>
+
 
                             {/* The Content: Image + Canvas */}
                             {/* We wrap them in a div that handles the transform */}
@@ -643,13 +628,27 @@ export const ImagePaintTool: React.FC<ImagePaintToolProps> = () => {
                                 />
                                 <canvas
                                     ref={canvasRef}
-                                    className="absolute inset-0 pointer-events-none" // We handle events on container, but need to map to canvas
-                                // Wait, if pointer-events-none, how do we draw?
-                                // APPROACH FIX: We handle events on containerRef, but we need to coordinate mapping.
-                                // Actually, it's better if canvas catches events? 
-                                // But we have Pan (Shift).
-                                // Let's keep events on Container, mapped to Canvas coordinates.
+                                    className="absolute inset-0 pointer-events-none"
                                 />
+                            </div>
+
+
+                            {/* Helper Text (Moved to end) */}
+                            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-xs font-bold pointer-events-none z-30 backdrop-blur-sm">
+                                Scal: {Math.round(scale * 100)}% | Pos: {Math.round(position.x)}, {Math.round(position.y)}
+                            </div>
+
+                            {/* NEW: Single Download Button (Top Right) - Moved to end */}
+                            <div className="absolute top-6 right-6 z-50 flex items-center gap-2 pointer-events-auto">
+                                <button
+                                    onClick={handleDownloadSingle}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    className="bg-white/10 hover:bg-white/20 text-white p-2.5 rounded-full backdrop-blur-md transition-all border border-white/10 shadow-lg"
+                                    title="Download Current Image"
+                                >
+                                    <Download size={20} />
+                                </button>
+                                {activeTool === 'eyedropper' && <div className="bg-black text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg animate-pulse">Eyedropper Active</div>}
                             </div>
                         </>
                     ) : (
@@ -662,6 +661,6 @@ export const ImagePaintTool: React.FC<ImagePaintToolProps> = () => {
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 };

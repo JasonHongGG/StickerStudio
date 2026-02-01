@@ -634,20 +634,23 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
                     {selectedImage ? (
                         <>
                             {/* Nav Buttons */}
-                            <button
-                                onClick={handlePrevImage}
-                                className="absolute left-6 top-1/2 -translate-y-1/2 p-3 bg-white hover:bg-gray-50 text-black rounded-full shadow-xl transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 active:scale-95 border border-gray-100 z-50"
-                                disabled={images.indexOf(selectedImage) === 0}
-                            >
-                                <ArrowLeft size={20} />
-                            </button>
-                            <button
-                                onClick={handleNextImage}
-                                className="absolute right-6 top-1/2 -translate-y-1/2 p-3 bg-white hover:bg-gray-50 text-black rounded-full shadow-xl transition-all opacity-0 group-hover:opacity-100 disabled:opacity-0 active:scale-95 border border-gray-100 z-50"
-                                disabled={images.indexOf(selectedImage) === images.length - 1}
-                            >
-                                <ArrowRight size={20} />
-                            </button>
+                            {/* Nav Buttons */}
+                            {images.indexOf(selectedImage) > 0 && (
+                                <button
+                                    onClick={handlePrevImage}
+                                    className="absolute left-6 top-1/2 -translate-y-1/2 p-3 bg-white hover:bg-gray-50 text-black rounded-full shadow-xl transition-all opacity-0 group-hover:opacity-100 active:scale-95 border border-gray-100 z-50"
+                                >
+                                    <ArrowLeft size={20} />
+                                </button>
+                            )}
+                            {images.indexOf(selectedImage) < images.length - 1 && (
+                                <button
+                                    onClick={handleNextImage}
+                                    className="absolute right-6 top-1/2 -translate-y-1/2 p-3 bg-white hover:bg-gray-50 text-black rounded-full shadow-xl transition-all opacity-0 group-hover:opacity-100 active:scale-95 border border-gray-100 z-50"
+                                >
+                                    <ArrowRight size={20} />
+                                </button>
+                            )}
 
                             {/* Comparison Slider Container */}
                             <div
