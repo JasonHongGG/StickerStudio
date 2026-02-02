@@ -190,7 +190,7 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
         const sensitivity = 0.0001;
         const delta = -e.deltaY * sensitivity;
 
-        const newScale = Math.min(Math.max(0.1, scale + delta), 5); // Limit zoom 0.1x to 5x
+        const newScale = Math.min(Math.max(0.02, scale + delta), 5); // Limit zoom 0.02x to 5x
 
         setScale(newScale);
     };
@@ -230,6 +230,10 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
 
             const img = new Image();
             img.onload = () => {
+                // Fill background with black for areas outside the image
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
                 // Determine render size
                 // We need to map the visual representation to the canvas
                 // Visually: Center of Viewport -> Center of Crop Rect
@@ -305,6 +309,10 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
 
                 const img = new Image();
                 img.onload = () => {
+                    // Fill background with black for areas outside the image
+                    ctx.fillStyle = '#000000';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
                     // If no crop state, we should probably AutoFit here too? 
                     // Let's assume user visited all important ones, or default to Center/Fit.
                     // For "Download All", if user hasn't touched it, maybe we just center it?

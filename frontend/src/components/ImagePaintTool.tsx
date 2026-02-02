@@ -313,7 +313,7 @@ export const ImagePaintTool: React.FC<ImagePaintToolProps> = () => {
         if (!selectedImage) return;
         const sensitivity = 0.0001;
         const delta = -e.deltaY * sensitivity;
-        setScale(s => Math.min(Math.max(0.1, s + delta), 5));
+        setScale(s => Math.min(Math.max(0.02, s + delta), 5));
     };
 
     // --- Export ---
