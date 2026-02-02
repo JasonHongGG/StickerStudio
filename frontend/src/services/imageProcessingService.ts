@@ -56,6 +56,11 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
         // Parameters
         const userSimilarity = options.similarity !== undefined ? options.similarity : 40;
 
+        // Key color traits
+        const keyIsNeutral = keyHsl.s < 0.15; // gray/black/white-ish
+        const keyIsDark = keyHsl.l < 0.2;
+        const keyIsLight = keyHsl.l > 0.85;
+
         // Hue Tolerance: How far from the Key Hue is allowed?
         // 40/100 similarity -> +/- 40 degrees? 
         // Original Green was ~60-185 (Range ~125, so +/- 60).
@@ -65,12 +70,12 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
         // Saturation Threshold: How "colored" must it be?
         // Original Green was > 0.22. If Key is very pale, this should be lower.
         // If Key is highly saturated, we expect bg to be saturated.
-        const satThresh = Math.max(0.1, keyHsl.s * 0.5); // At least 10% saturation, or half of key
+        const satThresh = keyIsNeutral ? 0 : Math.max(0.1, keyHsl.s * 0.5); // allow low-sat if key is neutral
 
         // Lightness Range:
         // Original Green was 0.12 - 0.95.
-        const lMin = 0.1;
-        const lMax = 0.98;
+        const lMin = keyIsDark ? 0 : (keyIsLight ? 0.6 : 0.1);
+        const lMax = keyIsLight ? 1 : 0.98;
 
         img.onload = () => {
             const canvas = document.createElement('canvas');
@@ -109,6 +114,254 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
             const mask = new Uint8Array(len); // 0:unknown, 1:bg, 2:fg
             const queue: number[] = [];
 
+            // --- Shared Helpers ---
+            let luma: Float32Array | null = null;
+            const getLuma = (): Float32Array => {
+                if (!luma) {
+                    luma = new Float32Array(len);
+                    for (let i = 0; i < len; i++) {
+                        const r = data[i * 4];
+                        const g = data[i * 4 + 1];
+                        const b = data[i * 4 + 2];
+                        luma[i] = 0.299 * r + 0.587 * g + 0.114 * b;
+                    }
+                }
+                return luma;
+            };
+
+            // --- Text Protection Mask (Edge-based) ---
+            // Use Sobel gradient to protect strong edges (text strokes)
+            const edgeMask = new Uint8Array(len); // 1 = protect
+            const buildEdgeMask = () => {
+                const l = getLuma();
+                const edgeThreshold = (keyIsNeutral ? 28 : 20) + (userSimilarity * 0.2); // 28..48 for neutral
+
+                for (let y = 1; y < h - 1; y++) {
+                    for (let x = 1; x < w - 1; x++) {
+                        const idx = y * w + x;
+                        const i00 = (y - 1) * w + (x - 1);
+                        const i01 = (y - 1) * w + x;
+                        const i02 = (y - 1) * w + (x + 1);
+                        const i10 = y * w + (x - 1);
+                        const i12 = y * w + (x + 1);
+                        const i20 = (y + 1) * w + (x - 1);
+                        const i21 = (y + 1) * w + x;
+                        const i22 = (y + 1) * w + (x + 1);
+
+                        const gx =
+                            -l[i00] + l[i02] +
+                            -2 * l[i10] + 2 * l[i12] +
+                            -l[i20] + l[i22];
+
+                        const gy =
+                            -l[i00] - 2 * l[i01] - l[i02] +
+                            l[i20] + 2 * l[i21] + l[i22];
+
+                        const mag = Math.abs(gx) + Math.abs(gy);
+
+                        if (mag >= edgeThreshold) {
+                            const r = data[idx * 4];
+                            const g = data[idx * 4 + 1];
+                            const b = data[idx * 4 + 2];
+                            const nearKey =
+                                Math.abs(r - keyRgb.r) +
+                                Math.abs(g - keyRgb.g) +
+                                Math.abs(b - keyRgb.b) < 60;
+                            if (!nearKey) edgeMask[idx] = 1;
+                        }
+                    }
+                }
+            };
+
+            // --- Neutral Key Specific Steps ---
+            const applyNeutralEnclosedCleanup = () => {
+                const lumaAt = (r: number, g: number, b: number) => 0.299 * r + 0.587 * g + 0.114 * b;
+                const edgeThreshold = Math.max(4, 12 - (userSimilarity * 0.05)); // higher similarity -> more aggressive
+
+                for (let y = 1; y < h - 1; y++) {
+                    for (let x = 1; x < w - 1; x++) {
+                        const idx = y * w + x;
+                        if (data[idx * 4 + 3] === 0) continue; // already transparent
+
+                        if (!isMatch(idx, true)) continue;
+
+                        const i4 = idx * 4;
+                        const cL = lumaAt(data[i4], data[i4 + 1], data[i4 + 2]);
+
+                        const lL = lumaAt(data[i4 - 4], data[i4 - 3], data[i4 - 2]);
+                        const rL = lumaAt(data[i4 + 4], data[i4 + 5], data[i4 + 6]);
+                        const tL = lumaAt(data[i4 - w * 4], data[i4 - w * 4 + 1], data[i4 - w * 4 + 2]);
+                        const bL = lumaAt(data[i4 + w * 4], data[i4 + w * 4 + 1], data[i4 + w * 4 + 2]);
+
+                        const edgeStrength = Math.max(
+                            Math.abs(cL - lL),
+                            Math.abs(cL - rL),
+                            Math.abs(cL - tL),
+                            Math.abs(cL - bL)
+                        );
+
+                        if (edgeStrength < edgeThreshold && !edgeMask[idx]) {
+                            data[i4 + 3] = 0;
+                        }
+                    }
+                }
+            };
+
+            const applyNeutralEdgeDecontamination = () => {
+                for (let y = 1; y < h - 1; y++) {
+                    for (let x = 1; x < w - 1; x++) {
+                        const idx = y * w + x;
+                        const i4 = idx * 4;
+                        if (data[i4 + 3] === 0) continue;
+
+                        const hasTransparentNeighbor =
+                            data[i4 - 4 + 3] === 0 || data[i4 + 4 + 3] === 0 ||
+                            data[i4 - w * 4 + 3] === 0 || data[i4 + w * 4 + 3] === 0 ||
+                            data[i4 - w * 4 - 4 + 3] === 0 || data[i4 - w * 4 + 4 + 3] === 0 ||
+                            data[i4 + w * 4 - 4 + 3] === 0 || data[i4 + w * 4 + 4 + 3] === 0;
+
+                        if (!hasTransparentNeighbor) continue;
+
+                        const nearKey =
+                            Math.abs(data[i4] - keyRgb.r) +
+                            Math.abs(data[i4 + 1] - keyRgb.g) +
+                            Math.abs(data[i4 + 2] - keyRgb.b) < 80;
+
+                        if (!nearKey) continue;
+
+                        let sumR = 0, sumG = 0, sumB = 0, count = 0;
+                        for (let dy = -1; dy <= 1; dy++) {
+                            for (let dx = -1; dx <= 1; dx++) {
+                                if (dx === 0 && dy === 0) continue;
+                                const nIdx = (y + dy) * w + (x + dx);
+                                const n4 = nIdx * 4;
+                                if (data[n4 + 3] > 0) {
+                                    sumR += data[n4];
+                                    sumG += data[n4 + 1];
+                                    sumB += data[n4 + 2];
+                                    count++;
+                                }
+                            }
+                        }
+
+                        if (count > 0) {
+                            data[i4] = sumR / count;
+                            data[i4 + 1] = sumG / count;
+                            data[i4 + 2] = sumB / count;
+                        }
+                    }
+                }
+            };
+
+            const applyNeutralEdgeAlphaCleanup = () => {
+                const l = getLuma();
+                const edgeThreshold2 = 10 + (userSimilarity * 0.1); // 10..20
+
+                for (let y = 1; y < h - 1; y++) {
+                    for (let x = 1; x < w - 1; x++) {
+                        const idx = y * w + x;
+                        const i4 = idx * 4;
+                        if (data[i4 + 3] === 0) continue;
+
+                        const hasTransparentNeighbor =
+                            data[i4 - 4 + 3] === 0 || data[i4 + 4 + 3] === 0 ||
+                            data[i4 - w * 4 + 3] === 0 || data[i4 + w * 4 + 3] === 0 ||
+                            data[i4 - w * 4 - 4 + 3] === 0 || data[i4 - w * 4 + 4 + 3] === 0 ||
+                            data[i4 + w * 4 - 4 + 3] === 0 || data[i4 + w * 4 + 4 + 3] === 0;
+
+                        if (!hasTransparentNeighbor) continue;
+
+                        const nearKey =
+                            Math.abs(data[i4] - keyRgb.r) +
+                            Math.abs(data[i4 + 1] - keyRgb.g) +
+                            Math.abs(data[i4 + 2] - keyRgb.b) < 90;
+
+                        if (!nearKey) continue;
+
+                        const i00 = (y - 1) * w + (x - 1);
+                        const i01 = (y - 1) * w + x;
+                        const i02 = (y - 1) * w + (x + 1);
+                        const i10 = y * w + (x - 1);
+                        const i12 = y * w + (x + 1);
+                        const i20 = (y + 1) * w + (x - 1);
+                        const i21 = (y + 1) * w + x;
+                        const i22 = (y + 1) * w + (x + 1);
+
+                        const gx =
+                            -l[i00] + l[i02] +
+                            -2 * l[i10] + 2 * l[i12] +
+                            -l[i20] + l[i22];
+
+                        const gy =
+                            -l[i00] - 2 * l[i01] - l[i02] +
+                            l[i20] + 2 * l[i21] + l[i22];
+
+                        const mag = Math.abs(gx) + Math.abs(gy);
+                        if (mag < edgeThreshold2 && !edgeMask[idx]) {
+                            data[i4 + 3] = 0;
+                        }
+                    }
+                }
+            };
+
+            const applyKeyColorDecontamination = () => {
+                const keyDiffThreshold = 70 + (userSimilarity * 0.3); // 70..100
+
+                for (let y = 1; y < h - 1; y++) {
+                    for (let x = 1; x < w - 1; x++) {
+                        const idx = y * w + x;
+                        const i4 = idx * 4;
+                        if (data[i4 + 3] === 0) continue;
+
+                        const hasTransparentNeighbor =
+                            data[i4 - 4 + 3] === 0 || data[i4 + 4 + 3] === 0 ||
+                            data[i4 - w * 4 + 3] === 0 || data[i4 + w * 4 + 3] === 0 ||
+                            data[i4 - w * 4 - 4 + 3] === 0 || data[i4 - w * 4 + 4 + 3] === 0 ||
+                            data[i4 + w * 4 - 4 + 3] === 0 || data[i4 + w * 4 + 4 + 3] === 0;
+
+                        if (!hasTransparentNeighbor) continue;
+
+                        const diff =
+                            Math.abs(data[i4] - keyRgb.r) +
+                            Math.abs(data[i4 + 1] - keyRgb.g) +
+                            Math.abs(data[i4 + 2] - keyRgb.b);
+
+                        if (diff > keyDiffThreshold) continue;
+
+                        let sumR = 0, sumG = 0, sumB = 0, count = 0;
+                        for (let dy = -1; dy <= 1; dy++) {
+                            for (let dx = -1; dx <= 1; dx++) {
+                                if (dx === 0 && dy === 0) continue;
+                                const nIdx = (y + dy) * w + (x + dx);
+                                const n4 = nIdx * 4;
+                                if (data[n4 + 3] > 0) {
+                                    const nDiff =
+                                        Math.abs(data[n4] - keyRgb.r) +
+                                        Math.abs(data[n4 + 1] - keyRgb.g) +
+                                        Math.abs(data[n4 + 2] - keyRgb.b);
+                                    if (nDiff > keyDiffThreshold) {
+                                        sumR += data[n4];
+                                        sumG += data[n4 + 1];
+                                        sumB += data[n4 + 2];
+                                        count++;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (count > 0) {
+                            data[i4] = sumR / count;
+                            data[i4 + 1] = sumG / count;
+                            data[i4 + 2] = sumB / count;
+                        } else if (!edgeMask[idx]) {
+                            data[i4 + 3] = 0;
+                        }
+                    }
+                }
+            };
+
+            buildEdgeMask();
+
             // Helper: Check Pixel
             const isMatch = (idx: number, isStrict: boolean = false): boolean => {
                 const r = data[idx * 4];
@@ -123,6 +376,19 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
 
                 // 2. HSL Check
                 const { h, s, l } = rgbToHsl(r, g, b);
+
+                // If key color is neutral (black/white/gray), rely on lightness + saturation
+                if (keyIsNeutral) {
+                    const lTol = 0.12 + (userSimilarity / 100) * 0.25; // 0.12 ~ 0.37
+                    const sTol = 0.2 + (userSimilarity / 100) * 0.2;  // 0.2 ~ 0.4
+
+                    if (Math.abs(l - keyHsl.l) <= lTol && s <= sTol) return true;
+
+                    // Extra allowance for very dark keys
+                    if (keyIsDark && l <= (0.1 + (userSimilarity / 100) * 0.15)) return true;
+
+                    return false;
+                }
 
                 // Check Lightness & Saturation bounds
                 if (l < lMin || l > lMax) return false;
@@ -156,7 +422,7 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
 
                 if (isMatch(idx)) {
                     mask[idx] = 1;
-                    data[idx * 4 + 3] = 0;
+                    if (!edgeMask[idx]) data[idx * 4 + 3] = 0;
 
                     const x = idx % w;
                     const y = Math.floor(idx / w);
@@ -169,6 +435,10 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
                     mask[idx] = 2; // Edge/Foreground
                 }
             }
+
+            // --- 2. Enclosed Background Cleanup (Neutral Keys) ---
+            // For black/gray/white keys, remove flat key-colored regions even if not connected to border
+            if (keyIsNeutral) applyNeutralEnclosedCleanup();
 
             // --- 3. Generic Spill Suppression ---
             // If edge pixel matches Hue somewhat, desaturate it.
@@ -203,7 +473,11 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
                 }
             }
 
-            // --- 4. Feathering (Alpha Smoothing) ---
+            // --- 4. Edge Decontamination (Neutral Keys) ---
+            // Reduce dark/gray fringe on protected edges by borrowing neighbor colors
+            if (keyIsNeutral) applyNeutralEdgeDecontamination();
+
+            // --- 5. Feathering (Alpha Smoothing) ---
             const copyData = new Uint8ClampedArray(data);
             for (let y = 1; y < h - 1; y++) {
                 for (let x = 1; x < w - 1; x++) {
@@ -234,6 +508,14 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
                     }
                 }
             }
+
+            // --- 6. Edge Alpha Cleanup (Neutral Keys) ---
+            // Remove fuzzy dark halos near transparency
+            if (keyIsNeutral) applyNeutralEdgeAlphaCleanup();
+
+            // --- 7. Key Color Decontamination (All Keys) ---
+            // Remove colored fringes (green/black/etc) on edges
+            applyKeyColorDecontamination();
 
             ctx.putImageData(imageData, 0, 0);
             resolve(canvas.toDataURL('image/png'));
