@@ -43,6 +43,9 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
     // Algorithm Settings
     const [keyColor, setKeyColor] = useState('#00FF00'); // Default Green
     const [isEyedropperActive, setIsEyedropperActive] = useState(false);
+    const [edgeErosionIterations, setEdgeErosionIterations] = useState(3);
+    const [edgeShrinkIterations, setEdgeShrinkIterations] = useState(1);
+    const [edgeSmoothIterations, setEdgeSmoothIterations] = useState(1);
 
     // Auto-select first image when added
     useEffect(() => {
@@ -221,7 +224,10 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
                     // The service now handles keyColor option.
                     resultUrl = await removeBackground(dataUrl, {
                         keyColor: keyColor,
-                        similarity: 40 // Keep default for now, could expose as slider later
+                        similarity: 40, // Keep default for now, could expose as slider later
+                        edgeErosionIterations,
+                        edgeShrinkIterations,
+                        edgeSmoothIterations
                     });
                 }
 
@@ -503,6 +509,43 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
 
                 {/* 3. Action Footer (Fixed Bottom) */}
                 <div className="flex-shrink-0 p-5 border-t border-gray-100 bg-gray-50/50 z-20 space-y-3">
+                    {processingMode === 'algorithm' && (
+                        <div className="grid grid-cols-3 gap-3">
+                            <label className="flex flex-col gap-1">
+                                <span className="text-[11px] font-semibold text-gray-600">侵蝕次數</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={10}
+                                    value={edgeErosionIterations}
+                                    onChange={(e) => setEdgeErosionIterations(Math.max(0, Math.min(10, Number(e.target.value) || 0)))}
+                                    className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm font-bold text-gray-800 focus:border-black focus:outline-none"
+                                />
+                            </label>
+                            <label className="flex flex-col gap-1">
+                                <span className="text-[11px] font-semibold text-gray-600">縮邊次數</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={10}
+                                    value={edgeShrinkIterations}
+                                    onChange={(e) => setEdgeShrinkIterations(Math.max(0, Math.min(10, Number(e.target.value) || 0)))}
+                                    className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm font-bold text-gray-800 focus:border-black focus:outline-none"
+                                />
+                            </label>
+                            <label className="flex flex-col gap-1">
+                                <span className="text-[11px] font-semibold text-gray-600">平滑次數</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={10}
+                                    value={edgeSmoothIterations}
+                                    onChange={(e) => setEdgeSmoothIterations(Math.max(0, Math.min(10, Number(e.target.value) || 0)))}
+                                    className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm font-bold text-gray-800 focus:border-black focus:outline-none"
+                                />
+                            </label>
+                        </div>
+                    )}
                     {/* Download All Button - only show when there are successful results */}
                     {images.some(img => img.status === 'success') && (
                         <button

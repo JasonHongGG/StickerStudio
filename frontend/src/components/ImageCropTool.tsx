@@ -27,6 +27,7 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
     // Crop Configuration
     const [cropWidth, setCropWidth] = useState(370);
     const [cropHeight, setCropHeight] = useState(320);
+    const [cropBackground, setCropBackground] = useState<'black' | 'transparent'>('black');
 
     // Transform State (Pan & Zoom)
     const [scale, setScale] = useState(1);
@@ -179,6 +180,11 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
         ));
     };
 
+    const handleResetPosition = () => {
+        if (!selectedImage || selectedImage.locked) return;
+        setPosition({ x: 0, y: 0 });
+    };
+
     // --- Transform Logic ---
 
     const handleWheel = (e: React.WheelEvent) => {
@@ -230,9 +236,11 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
 
             const img = new Image();
             img.onload = () => {
-                // Fill background with black for areas outside the image
-                ctx.fillStyle = '#000000';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                if (cropBackground === 'black') {
+                    // Fill background with black for areas outside the image
+                    ctx.fillStyle = '#000000';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
 
                 // Determine render size
                 // We need to map the visual representation to the canvas
@@ -309,9 +317,11 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
 
                 const img = new Image();
                 img.onload = () => {
-                    // Fill background with black for areas outside the image
-                    ctx.fillStyle = '#000000';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    if (cropBackground === 'black') {
+                        // Fill background with black for areas outside the image
+                        ctx.fillStyle = '#000000';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    }
 
                     // If no crop state, we should probably AutoFit here too? 
                     // Let's assume user visited all important ones, or default to Center/Fit.
@@ -582,6 +592,23 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
 
                             {/* Top Right Actions */}
                             <div className="absolute top-6 right-6 flex items-center gap-3 z-30">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCropBackground(prev => prev === 'black' ? 'transparent' : 'black');
+                                    }}
+                                    className="px-3 py-2 rounded-full bg-white/10 backdrop-blur-md text-white border border-white/20 hover:bg-white/20 transition-all shadow-lg text-xs font-bold"
+                                    title={cropBackground === 'black' ? 'Background: Black' : 'Background: Transparent'}
+                                >
+                                    {cropBackground === 'black' ? '黑底' : '透明'}
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleResetPosition(); }}
+                                    className="p-3 rounded-full bg-white/10 backdrop-blur-md text-white border border-white/20 hover:bg-white/20 transition-all shadow-lg"
+                                    title="Reset Position"
+                                >
+                                    <Scan size={20} />
+                                </button>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleToggleLock(); }}
                                     className={`p-3 rounded-full backdrop-blur-md transition-all shadow-lg border ${selectedImage.locked

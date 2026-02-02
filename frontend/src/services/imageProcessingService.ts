@@ -40,6 +40,9 @@ export interface BackgroundRemovalOptions {
     fitToStickerSize?: boolean;
     keyColor?: string; // Hex code, e.g. "#00FF00"
     similarity?: number; // 0-100
+    edgeErosionIterations?: number; // Step 8 iterations
+    edgeShrinkIterations?: number; // Step 9 iterations
+    edgeSmoothIterations?: number; // Step 10 iterations
 }
 
 // Core Removal Function
@@ -55,6 +58,9 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
 
         // Parameters
         const userSimilarity = options.similarity !== undefined ? options.similarity : 40;
+        const edgeErosionIterations = Math.max(0, Math.floor(options.edgeErosionIterations ?? 3));
+        const edgeShrinkIterations = Math.max(0, Math.floor(options.edgeShrinkIterations ?? 1));
+        const edgeSmoothIterations = Math.max(0, Math.floor(options.edgeSmoothIterations ?? 1));
 
         // Key color traits
         const keyIsNeutral = keyHsl.s < 0.15; // gray/black/white-ish
@@ -77,7 +83,7 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
         const lMin = keyIsDark ? 0 : (keyIsLight ? 0.6 : 0.1);
         const lMax = keyIsLight ? 1 : 0.98;
 
-        img.onload = () => {
+        img.onload = async () => {
             const canvas = document.createElement('canvas');
 
             // Determine dimensions
@@ -114,6 +120,14 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
             const mask = new Uint8Array(len); // 0:unknown, 1:bg, 2:fg
             const queue: number[] = [];
 
+            const yieldToMain = () => new Promise<void>((resolve) => {
+                if (typeof requestAnimationFrame !== 'undefined') {
+                    requestAnimationFrame(() => resolve());
+                } else {
+                    setTimeout(resolve, 0);
+                }
+            });
+
             // --- Shared Helpers ---
             let luma: Float32Array | null = null;
             const getLuma = (): Float32Array => {
@@ -132,11 +146,12 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
             // --- Text Protection Mask (Edge-based) ---
             // Use Sobel gradient to protect strong edges (text strokes)
             const edgeMask = new Uint8Array(len); // 1 = protect
-            const buildEdgeMask = () => {
+            const buildEdgeMask = async () => {
                 const l = getLuma();
                 const edgeThreshold = (keyIsNeutral ? 28 : 20) + (userSimilarity * 0.2); // 28..48 for neutral
 
                 for (let y = 1; y < h - 1; y++) {
+                    if (y % 40 === 0) await yieldToMain();
                     for (let x = 1; x < w - 1; x++) {
                         const idx = y * w + x;
                         const i00 = (y - 1) * w + (x - 1);
@@ -174,16 +189,20 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
             };
 
             // --- Neutral Key Specific Steps ---
-            const applyNeutralEnclosedCleanup = () => {
+            const applyNeutralEnclosedCleanup = async () => {
                 const lumaAt = (r: number, g: number, b: number) => 0.299 * r + 0.587 * g + 0.114 * b;
                 const edgeThreshold = Math.max(4, 12 - (userSimilarity * 0.05)); // higher similarity -> more aggressive
+                const neighborNearKeyThreshold = 6; // require majority of neighbors to be near key
 
                 for (let y = 1; y < h - 1; y++) {
+                    if (y % 40 === 0) await yieldToMain();
                     for (let x = 1; x < w - 1; x++) {
                         const idx = y * w + x;
                         if (data[idx * 4 + 3] === 0) continue; // already transparent
 
                         if (!isMatch(idx, true)) continue;
+
+                        if (edgeMask[idx]) continue; // protect edges/eyes/linework
 
                         const i4 = idx * 4;
                         const cL = lumaAt(data[i4], data[i4 + 1], data[i4 + 2]);
@@ -200,15 +219,31 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
                             Math.abs(cL - bL)
                         );
 
-                        if (edgeStrength < edgeThreshold && !edgeMask[idx]) {
+                        const nearKey = (i: number) =>
+                            Math.abs(data[i * 4] - keyRgb.r) +
+                            Math.abs(data[i * 4 + 1] - keyRgb.g) +
+                            Math.abs(data[i * 4 + 2] - keyRgb.b) < 80;
+
+                        let nearCount = 0;
+                        if (nearKey(idx - w - 1)) nearCount++;
+                        if (nearKey(idx - w)) nearCount++;
+                        if (nearKey(idx - w + 1)) nearCount++;
+                        if (nearKey(idx - 1)) nearCount++;
+                        if (nearKey(idx + 1)) nearCount++;
+                        if (nearKey(idx + w - 1)) nearCount++;
+                        if (nearKey(idx + w)) nearCount++;
+                        if (nearKey(idx + w + 1)) nearCount++;
+
+                        if (edgeStrength < edgeThreshold && nearCount >= neighborNearKeyThreshold) {
                             data[i4 + 3] = 0;
                         }
                     }
                 }
             };
 
-            const applyNeutralEdgeDecontamination = () => {
+            const applyNeutralEdgeDecontamination = async () => {
                 for (let y = 1; y < h - 1; y++) {
+                    if (y % 40 === 0) await yieldToMain();
                     for (let x = 1; x < w - 1; x++) {
                         const idx = y * w + x;
                         const i4 = idx * 4;
@@ -253,11 +288,12 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
                 }
             };
 
-            const applyNeutralEdgeAlphaCleanup = () => {
+            const applyNeutralEdgeAlphaCleanup = async () => {
                 const l = getLuma();
                 const edgeThreshold2 = 10 + (userSimilarity * 0.1); // 10..20
 
                 for (let y = 1; y < h - 1; y++) {
+                    if (y % 40 === 0) await yieldToMain();
                     for (let x = 1; x < w - 1; x++) {
                         const idx = y * w + x;
                         const i4 = idx * 4;
@@ -304,10 +340,13 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
                 }
             };
 
-            const applyKeyColorDecontamination = () => {
-                const keyDiffThreshold = 70 + (userSimilarity * 0.3); // 70..100
+            const applyKeyColorDecontamination = async () => {
+                const keyDiffThreshold = 60 + (userSimilarity * 0.35); // 60..95
+                const edgeAlphaThreshold = 12 + (userSimilarity * 0.1); // 12..22
+                const l = getLuma();
 
                 for (let y = 1; y < h - 1; y++) {
+                    if (y % 40 === 0) await yieldToMain();
                     for (let x = 1; x < w - 1; x++) {
                         const idx = y * w + x;
                         const i4 = idx * 4;
@@ -327,6 +366,31 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
                             Math.abs(data[i4 + 2] - keyRgb.b);
 
                         if (diff > keyDiffThreshold) continue;
+
+                        const i00 = (y - 1) * w + (x - 1);
+                        const i01 = (y - 1) * w + x;
+                        const i02 = (y - 1) * w + (x + 1);
+                        const i10 = y * w + (x - 1);
+                        const i12 = y * w + (x + 1);
+                        const i20 = (y + 1) * w + (x - 1);
+                        const i21 = (y + 1) * w + x;
+                        const i22 = (y + 1) * w + (x + 1);
+
+                        const gx =
+                            -l[i00] + l[i02] +
+                            -2 * l[i10] + 2 * l[i12] +
+                            -l[i20] + l[i22];
+
+                        const gy =
+                            -l[i00] - 2 * l[i01] - l[i02] +
+                            l[i20] + 2 * l[i21] + l[i22];
+
+                        const mag = Math.abs(gx) + Math.abs(gy);
+
+                        if (mag < edgeAlphaThreshold && !edgeMask[idx]) {
+                            data[i4 + 3] = 0;
+                            continue;
+                        }
 
                         let sumR = 0, sumG = 0, sumB = 0, count = 0;
                         for (let dy = -1; dy <= 1; dy++) {
@@ -360,7 +424,7 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
                 }
             };
 
-            buildEdgeMask();
+            await buildEdgeMask();
 
             // Helper: Check Pixel
             const isMatch = (idx: number, isStrict: boolean = false): boolean => {
@@ -415,10 +479,13 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
             const visited = new Uint8Array(len);
 
             // --- 1. Flood Fill ---
+            let floodCount = 0;
             while (queue.length > 0) {
                 const idx = queue.shift()!;
                 if (visited[idx]) continue;
                 visited[idx] = 1;
+
+                if (++floodCount % 5000 === 0) await yieldToMain();
 
                 if (isMatch(idx)) {
                     mask[idx] = 1;
@@ -438,11 +505,12 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
 
             // --- 2. Enclosed Background Cleanup (Neutral Keys) ---
             // For black/gray/white keys, remove flat key-colored regions even if not connected to border
-            if (keyIsNeutral) applyNeutralEnclosedCleanup();
+            if (keyIsNeutral) await applyNeutralEnclosedCleanup();
 
             // --- 3. Generic Spill Suppression ---
             // If edge pixel matches Hue somewhat, desaturate it.
             for (let i = 0; i < len; i++) {
+                if (i % (w * 20) === 0) await yieldToMain();
                 if (data[i * 4 + 3] === 0) continue;
 
                 const x = i % w;
@@ -475,11 +543,12 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
 
             // --- 4. Edge Decontamination (Neutral Keys) ---
             // Reduce dark/gray fringe on protected edges by borrowing neighbor colors
-            if (keyIsNeutral) applyNeutralEdgeDecontamination();
+            if (keyIsNeutral) await applyNeutralEdgeDecontamination();
 
             // --- 5. Feathering (Alpha Smoothing) ---
             const copyData = new Uint8ClampedArray(data);
             for (let y = 1; y < h - 1; y++) {
+                if (y % 40 === 0) await yieldToMain();
                 for (let x = 1; x < w - 1; x++) {
                     const idx = y * w + x;
 
@@ -511,11 +580,120 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
 
             // --- 6. Edge Alpha Cleanup (Neutral Keys) ---
             // Remove fuzzy dark halos near transparency
-            if (keyIsNeutral) applyNeutralEdgeAlphaCleanup();
+            if (keyIsNeutral) await applyNeutralEdgeAlphaCleanup();
 
             // --- 7. Key Color Decontamination (All Keys) ---
             // Remove colored fringes (green/black/etc) on edges
-            applyKeyColorDecontamination();
+            await applyKeyColorDecontamination();
+
+            // --- 8. Key Color Edge Erosion (All Keys) ---
+            // Final hard cleanup: remove remaining key-colored edge pixels
+            {
+                const keyDiffThreshold = 180; // extremely aggressive
+
+                for (let pass = 0; pass < edgeErosionIterations; pass++) {
+                    const copy = new Uint8ClampedArray(data);
+                    for (let y = 1; y < h - 1; y++) {
+                        if (y % 40 === 0) await yieldToMain();
+                        for (let x = 1; x < w - 1; x++) {
+                            const idx = y * w + x;
+                            const i4 = idx * 4;
+                            if (copy[i4 + 3] === 0) continue;
+
+                            const hasTransparentNeighbor =
+                                copy[i4 - 4 + 3] === 0 || copy[i4 + 4 + 3] === 0 ||
+                                copy[i4 - w * 4 + 3] === 0 || copy[i4 + w * 4 + 3] === 0 ||
+                                copy[i4 - w * 4 - 4 + 3] === 0 || copy[i4 - w * 4 + 4 + 3] === 0 ||
+                                copy[i4 + w * 4 - 4 + 3] === 0 || copy[i4 + w * 4 + 4 + 3] === 0;
+
+                            if (!hasTransparentNeighbor) continue;
+
+                            const diff =
+                                Math.abs(copy[i4] - keyRgb.r) +
+                                Math.abs(copy[i4 + 1] - keyRgb.g) +
+                                Math.abs(copy[i4 + 2] - keyRgb.b);
+
+                            if (diff <= keyDiffThreshold) {
+                                data[i4 + 3] = 0;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // --- 9. Edge Shrink (All Keys) ---
+            // Remove a thin outer rim regardless of color for a fully clean cutout
+            {
+                for (let pass = 0; pass < edgeShrinkIterations; pass++) {
+                    const copy = new Uint8ClampedArray(data);
+
+                    for (let y = 1; y < h - 1; y++) {
+                        if (y % 40 === 0) await yieldToMain();
+                        for (let x = 1; x < w - 1; x++) {
+                            const idx = y * w + x;
+                            const i4 = idx * 4;
+                            if (copy[i4 + 3] === 0) continue;
+
+                            const hasTransparentNeighbor =
+                                copy[i4 - 4 + 3] === 0 || copy[i4 + 4 + 3] === 0 ||
+                                copy[i4 - w * 4 + 3] === 0 || copy[i4 + w * 4 + 3] === 0 ||
+                                copy[i4 - w * 4 - 4 + 3] === 0 || copy[i4 - w * 4 + 4 + 3] === 0 ||
+                                copy[i4 + w * 4 - 4 + 3] === 0 || copy[i4 + w * 4 + 4 + 3] === 0;
+
+                            if (hasTransparentNeighbor) {
+                                data[i4 + 3] = 0;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // --- 10. Edge Smoothing (All Keys) ---
+            // Anti-alias edge lines using coverage + sharpening (no color blur)
+            {
+                const smoothLow = 0.35;
+                const smoothHigh = 0.65;
+
+                for (let pass = 0; pass < edgeSmoothIterations; pass++) {
+                    const copy = new Uint8ClampedArray(data);
+
+                    for (let y = 1; y < h - 1; y++) {
+                        if (y % 40 === 0) await yieldToMain();
+                        for (let x = 1; x < w - 1; x++) {
+                            const idx = y * w + x;
+                            const i4 = idx * 4;
+
+                            let hasTransparent = false;
+                            let hasOpaque = false;
+
+                            if (copy[(y - 1) * w * 4 + x * 4 + 3] === 0 || copy[(y + 1) * w * 4 + x * 4 + 3] === 0 ||
+                                copy[y * w * 4 + (x - 1) * 4 + 3] === 0 || copy[y * w * 4 + (x + 1) * 4 + 3] === 0) {
+                                hasTransparent = true;
+                            }
+                            if (copy[(y - 1) * w * 4 + x * 4 + 3] > 0 || copy[(y + 1) * w * 4 + x * 4 + 3] > 0 ||
+                                copy[y * w * 4 + (x - 1) * 4 + 3] > 0 || copy[y * w * 4 + (x + 1) * 4 + 3] > 0) {
+                                hasOpaque = true;
+                            }
+
+                            if (!(hasTransparent && hasOpaque)) continue;
+
+                            let sumA = 0;
+                            let c = 0;
+                            for (let dy = -1; dy <= 1; dy++) {
+                                for (let dx = -1; dx <= 1; dx++) {
+                                    sumA += copy[((y + dy) * w + (x + dx)) * 4 + 3];
+                                    c++;
+                                }
+                            }
+
+                            let a = (sumA / c) / 255;
+                            a = Math.min(1, Math.max(0, (a - smoothLow) / (smoothHigh - smoothLow)));
+                            a = a * a * (3 - 2 * a); // smoothstep for sharper edge
+                            data[i4 + 3] = a * 255;
+                        }
+                    }
+                }
+            }
 
             ctx.putImageData(imageData, 0, 0);
             resolve(canvas.toDataURL('image/png'));
