@@ -365,7 +365,12 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
             <div className="w-full lg:w-80 flex-shrink-0 border-r border-gray-100 bg-white flex flex-col z-10 font-sans">
 
                 {/* 1. Dynamic Content Area */}
-                <div className="flex-1 flex flex-col min-h-0 relative">
+                <div
+                    className="flex-1 flex flex-col min-h-0 relative"
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                >
                     {/* HIDDEN INPUT (Shared) */}
                     <input
                         type="file"
@@ -426,13 +431,62 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
                                 </div>
                             </div>
 
-                            {/* Scrollable Queue List */}
-                            <div
-                                className={`flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent p-3 space-y-2 relative transition-colors ${isDragging ? 'bg-blue-50/50' : ''}`}
-                                onDragOver={handleDragOver}
-                                onDragLeave={handleDragLeave}
-                                onDrop={handleDrop}
-                            >
+                            {/* Scrollable Queue List Wrapper */}
+                            <div className="flex-1 relative min-h-0">
+                                <div
+                                    className={`absolute inset-0 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent p-3 space-y-2 transition-colors ${isDragging ? 'bg-blue-50/50' : ''}`}
+                                >
+                                    {images.map((img) => (
+                                        <div
+                                            key={img.id}
+                                            onClick={() => handleSelectImage(img.id)}
+                                            className={`
+                                            group relative flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 border
+                                            ${selectedImageId === img.id ? 'bg-gray-900 border-gray-900 shadow-md z-0' : 'bg-white border-transparent hover:bg-gray-50'}
+                                        `}
+                                        >
+                                            <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0 relative">
+                                                <img src={img.previewUrl} className="w-full h-full object-cover" />
+                                                {img.status === 'success' && (
+                                                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center backdrop-blur-[1px]">
+                                                        <Check size={12} className="text-white" strokeWidth={3} />
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                                                <p className={`text-xs font-bold truncate ${selectedImageId === img.id ? 'text-white' : 'text-gray-900'}`}>
+                                                    {img.file.name}
+                                                </p>
+                                                <div className="flex items-center gap-1.5 h-3">
+                                                    {/* Status Text */}
+                                                    <span className={`text-[10px] font-medium leading-none ${selectedImageId === img.id ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                        {img.status === 'idle' && 'Waiting'}
+                                                        {img.status === 'processing' && 'Processing...'}
+                                                        {img.status === 'success' && 'Ready'}
+                                                        {img.status === 'error' && 'Failed'}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Hover Remove Button */}
+                                            <button
+                                                onClick={(e) => handleRemoveImage(img.id, e)}
+                                                className={`opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full ${selectedImageId === img.id ? 'text-gray-400 hover:text-white hover:bg-white/20' : 'text-gray-300 hover:text-red-500 hover:bg-red-50'}`}
+                                            >
+                                                <X size={14} />
+                                            </button>
+
+                                            {/* Processing Indicator Overrides all icons if strictly processing */}
+                                            {img.status === 'processing' && (
+                                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                    <div className="w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                                {/* Drop Overlay (Scoped to List Area) */}
                                 {isDragging && (
                                     <div className="absolute inset-0 z-50 flex items-center justify-center bg-blue-500/10 backdrop-blur-[2px] border-2 border-dashed border-blue-500 rounded-xl m-2 pointer-events-none">
                                         <div className="bg-white px-4 py-2 rounded-full shadow-lg text-blue-600 font-bold text-sm flex items-center gap-2">
@@ -441,55 +495,6 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
                                         </div>
                                     </div>
                                 )}
-                                {images.map((img) => (
-                                    <div
-                                        key={img.id}
-                                        onClick={() => handleSelectImage(img.id)}
-                                        className={`
-                                            group relative flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 border
-                                            ${selectedImageId === img.id ? 'bg-gray-900 border-gray-900 shadow-md z-0' : 'bg-white border-transparent hover:bg-gray-50'}
-                                        `}
-                                    >
-                                        <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0 relative">
-                                            <img src={img.previewUrl} className="w-full h-full object-cover" />
-                                            {img.status === 'success' && (
-                                                <div className="absolute inset-0 bg-black/30 flex items-center justify-center backdrop-blur-[1px]">
-                                                    <Check size={12} className="text-white" strokeWidth={3} />
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                                            <p className={`text-xs font-bold truncate ${selectedImageId === img.id ? 'text-white' : 'text-gray-900'}`}>
-                                                {img.file.name}
-                                            </p>
-                                            <div className="flex items-center gap-1.5 h-3">
-                                                {/* Status Text */}
-                                                <span className={`text-[10px] font-medium leading-none ${selectedImageId === img.id ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                    {img.status === 'idle' && 'Waiting'}
-                                                    {img.status === 'processing' && 'Processing...'}
-                                                    {img.status === 'success' && 'Ready'}
-                                                    {img.status === 'error' && 'Failed'}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        {/* Hover Remove Button */}
-                                        <button
-                                            onClick={(e) => handleRemoveImage(img.id, e)}
-                                            className={`opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full ${selectedImageId === img.id ? 'text-gray-400 hover:text-white hover:bg-white/20' : 'text-gray-300 hover:text-red-500 hover:bg-red-50'}`}
-                                        >
-                                            <X size={14} />
-                                        </button>
-
-                                        {/* Processing Indicator Overrides all icons if strictly processing */}
-                                        {img.status === 'processing' && (
-                                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                <div className="w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
                             </div>
                         </>
                     )}

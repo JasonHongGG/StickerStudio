@@ -417,7 +417,12 @@ export const ImagePaintTool: React.FC<ImagePaintToolProps> = () => {
             {/* Sidebar */}
             <div className="w-full lg:w-80 flex-shrink-0 border-r border-gray-100 bg-white flex flex-col z-50">
                 {/* 1. Queue */}
-                <div className="flex-1 flex flex-col min-h-0 relative">
+                <div
+                    className="flex-1 flex flex-col min-h-0 relative"
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                >
                     <input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" onChange={handleFileSelect} />
 
                     {images.length === 0 ? (
@@ -445,33 +450,36 @@ export const ImagePaintTool: React.FC<ImagePaintToolProps> = () => {
                                     <button onClick={handleClearAll} className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={16} /></button>
                                 </div>
                             </div>
-                            <div
-                                className={`flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent p-3 space-y-2 relative transition-colors ${isDragging ? 'bg-blue-50/50' : ''}`}
-                                onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
-                            >
+                            <div className="flex-1 relative min-h-0">
+                                <div
+                                    className={`absolute inset-0 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent p-3 space-y-2 transition-colors ${isDragging ? 'bg-blue-50/50' : ''}`}
+                                >
+                                    {images.map(img => (
+                                        <div
+                                            key={img.id} onClick={() => handleSelectImage(img.id)}
+                                            className={`group relative flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 border ${selectedImageId === img.id ? 'bg-gray-900 border-gray-900 shadow-md z-0' : 'bg-white border-transparent hover:bg-gray-50'}`}
+                                        >
+                                            <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0 relative">
+                                                <img src={img.previewUrl} className="w-full h-full object-cover" />
+                                                {img.status === 'edited' && selectedImageId !== img.id && <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center"><Brush size={12} className="text-white" /></div>}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className={`text-xs font-bold truncate ${selectedImageId === img.id ? 'text-white' : 'text-gray-900'}`}>{img.file.name}</p>
+                                                <span className={`text-[10px] font-medium ${selectedImageId === img.id ? 'text-gray-400' : 'text-gray-500'}`}>{img.status === 'idle' ? 'Ready' : 'Edited'}</span>
+                                            </div>
+                                            <button onClick={(e) => handleRemoveImage(img.id, e)} className={`opacity-0 group-hover:opacity-100 p-1.5 rounded-full ${selectedImageId === img.id ? 'text-gray-400 hover:text-white' : 'text-gray-300 hover:text-red-500'}`}><X size={14} /></button>
+                                        </div>
+                                    ))}
+                                </div>
+                                {/* Drop Overlay (Scoped to List Area) */}
                                 {isDragging && (
                                     <div className="absolute inset-0 z-50 flex items-center justify-center bg-blue-500/10 backdrop-blur-[2px] border-2 border-dashed border-blue-500 rounded-xl m-2 pointer-events-none">
                                         <div className="bg-white px-4 py-2 rounded-full shadow-lg text-blue-600 font-bold text-sm flex items-center gap-2">
-                                            <Upload size={16} /><span>Drop to Add Images</span>
+                                            <Upload size={16} />
+                                            <span>Drop to Add Images</span>
                                         </div>
                                     </div>
                                 )}
-                                {images.map(img => (
-                                    <div
-                                        key={img.id} onClick={() => handleSelectImage(img.id)}
-                                        className={`group relative flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 border ${selectedImageId === img.id ? 'bg-gray-900 border-gray-900 shadow-md z-0' : 'bg-white border-transparent hover:bg-gray-50'}`}
-                                    >
-                                        <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0 relative">
-                                            <img src={img.previewUrl} className="w-full h-full object-cover" />
-                                            {img.status === 'edited' && selectedImageId !== img.id && <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center"><Brush size={12} className="text-white" /></div>}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className={`text-xs font-bold truncate ${selectedImageId === img.id ? 'text-white' : 'text-gray-900'}`}>{img.file.name}</p>
-                                            <span className={`text-[10px] font-medium ${selectedImageId === img.id ? 'text-gray-400' : 'text-gray-500'}`}>{img.status === 'idle' ? 'Ready' : 'Edited'}</span>
-                                        </div>
-                                        <button onClick={(e) => handleRemoveImage(img.id, e)} className={`opacity-0 group-hover:opacity-100 p-1.5 rounded-full ${selectedImageId === img.id ? 'text-gray-400 hover:text-white' : 'text-gray-300 hover:text-red-500'}`}><X size={14} /></button>
-                                    </div>
-                                ))}
                             </div>
                         </>
                     )}
