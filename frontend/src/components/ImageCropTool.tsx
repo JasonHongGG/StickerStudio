@@ -113,6 +113,7 @@ export const ImageCropTool: React.FC<ImageCropToolProps> = () => {
     };
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
+        e.stopPropagation();
         setIsDragging(false);
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             addImages(e.dataTransfer.files);

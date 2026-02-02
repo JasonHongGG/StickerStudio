@@ -151,6 +151,7 @@ export const ImagePaintTool: React.FC<ImagePaintToolProps> = () => {
     };
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
+        e.stopPropagation();
         setIsDragging(false);
         if (e.dataTransfer.files) addImages(e.dataTransfer.files);
     };
