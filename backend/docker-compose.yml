@@ -1,7 +1,7 @@
 version: "3.9"
 
 services:
-  backend:
+  stick-studio-backend:
     image: node:20-alpine
     working_dir: /app
     volumes:
