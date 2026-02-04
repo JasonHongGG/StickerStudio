@@ -11,8 +11,12 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
+const corsOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
+    : ['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173'];
+
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173'],
+    origin: corsOrigins,
     credentials: true
 }));
 
