@@ -1,0 +1,35 @@
+{
+    "1": {
+        "inputs": {
+            "input_image": [
+                "2",
+                0
+            ]
+        },
+        "class_type": "BackgroundEraseNetwork",
+        "_meta": {
+            "title": "Background Erase Network Image"
+        }
+    },
+    "2": {
+        "inputs": {
+            "image": "0.PNG"
+        },
+        "class_type": "LoadImage",
+        "_meta": {
+            "title": "加载图像"
+        }
+    },
+    "3": {
+        "inputs": {
+            "images": [
+                "1",
+                0
+            ]
+        },
+        "class_type": "PreviewImage",
+        "_meta": {
+            "title": "预览图像"
+        }
+    }
+}

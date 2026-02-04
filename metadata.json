@@ -1,5 +1,0 @@
-{
-  "name": "貼圖生成器",
-  "description": "使用 Gemini 2.5 Flash Image 模型生成角色表情貼圖，並自動執行綠幕去背處理。",
-  "requestFramePermissions": []
-}
