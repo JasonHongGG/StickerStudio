@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Upload, X, Download, Play, Check, AlertCircle, Trash2, ArrowRight, Plus, ChevronsLeft, ChevronsRight, Image as ImageIcon, Settings, Pipette } from 'lucide-react';
+import { ArrowLeft, Upload, X, Download, Play, Check, AlertCircle, Trash2, ArrowRight, Plus, ChevronsLeft, ChevronsRight, Image as ImageIcon, Settings, Pipette, RotateCcw } from 'lucide-react';
 import { removeBackground } from '../services/imageProcessingService';
 import { removeBackgroundWithAI, checkComfyUIHealth } from '../services/bgRemovalApiClient';
 import JSZip from 'jszip';
@@ -43,7 +43,6 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
     // Algorithm Settings
     const [keyColor, setKeyColor] = useState('#00FF00'); // Default Green
     const [isEyedropperActive, setIsEyedropperActive] = useState(false);
-    const [edgeErosionIterations, setEdgeErosionIterations] = useState(3);
     const [edgeShrinkIterations, setEdgeShrinkIterations] = useState(1);
     const [edgeSmoothIterations, setEdgeSmoothIterations] = useState(1);
 
@@ -181,6 +180,19 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
         });
     };
 
+    const handleResetImage = (id: string, e?: React.MouseEvent) => {
+        e?.stopPropagation();
+        setImages(prev => prev.map(img => {
+            if (img.id !== id) return img;
+            if (img.status === 'processing') return img;
+            return {
+                ...img,
+                status: 'idle',
+                resultUrl: undefined
+            };
+        }));
+    };
+
     const handleClearAll = () => {
         images.forEach(img => URL.revokeObjectURL(img.previewUrl));
         setImages([]);
@@ -225,7 +237,6 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
                     resultUrl = await removeBackground(dataUrl, {
                         keyColor: keyColor,
                         similarity: 40, // Keep default for now, could expose as slider later
-                        edgeErosionIterations,
                         edgeShrinkIterations,
                         edgeSmoothIterations
                     });
@@ -477,6 +488,15 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
                                             </div>
 
                                             {/* Hover Remove Button */}
+                                            {img.status === 'success' && (
+                                                <button
+                                                    onClick={(e) => handleResetImage(img.id, e)}
+                                                    className={`opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full ${selectedImageId === img.id ? 'text-gray-400 hover:text-white hover:bg-white/20' : 'text-gray-300 hover:text-gray-700 hover:bg-gray-50'}`}
+                                                    title="重設狀態"
+                                                >
+                                                    <RotateCcw size={14} />
+                                                </button>
+                                            )}
                                             <button
                                                 onClick={(e) => handleRemoveImage(img.id, e)}
                                                 className={`opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full ${selectedImageId === img.id ? 'text-gray-400 hover:text-white hover:bg-white/20' : 'text-gray-300 hover:text-red-500 hover:bg-red-50'}`}
@@ -510,18 +530,7 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
                 {/* 3. Action Footer (Fixed Bottom) */}
                 <div className="flex-shrink-0 p-5 border-t border-gray-100 bg-gray-50/50 z-20 space-y-3">
                     {processingMode === 'algorithm' && (
-                        <div className="grid grid-cols-3 gap-3">
-                            <label className="flex flex-col gap-1">
-                                <span className="text-[11px] font-semibold text-gray-600">侵蝕次數</span>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    max={10}
-                                    value={edgeErosionIterations}
-                                    onChange={(e) => setEdgeErosionIterations(Math.max(0, Math.min(10, Number(e.target.value) || 0)))}
-                                    className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm font-bold text-gray-800 focus:border-black focus:outline-none"
-                                />
-                            </label>
+                        <div className="grid grid-cols-2 gap-3">
                             <label className="flex flex-col gap-1">
                                 <span className="text-[11px] font-semibold text-gray-600">縮邊次數</span>
                                 <input
