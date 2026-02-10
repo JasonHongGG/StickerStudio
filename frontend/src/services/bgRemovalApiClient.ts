@@ -6,13 +6,16 @@ const API_BASE_URL = (typeof import.meta !== 'undefined' && (import.meta as any)
  * @param imageBase64 - Base64 encoded image (with or without data URI prefix)
  * @returns Base64 encoded result image (without prefix)
  */
-export async function removeBackgroundWithAI(imageBase64: string): Promise<string> {
+export async function removeBackgroundWithAI(
+    imageBase64: string,
+    parameter?: Record<string, unknown>
+): Promise<string> {
     const response = await fetch(`${API_BASE_URL}/api/bg-removal/ai`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ imageBase64 }),
+        body: JSON.stringify({ imageBase64, parameter }),
     });
 
     if (!response.ok) {

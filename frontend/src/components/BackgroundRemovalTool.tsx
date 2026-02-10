@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Upload, X, Download, Play, Check, AlertCircle, Trash2, ArrowRight, Plus, ChevronsLeft, ChevronsRight, Image as ImageIcon, Settings, Pipette, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Upload, X, Download, Play, Check, AlertCircle, Trash2, ArrowRight, Plus, ChevronsLeft, ChevronsRight, Image as ImageIcon, Settings, Pipette, RotateCcw, ChevronDown } from 'lucide-react';
 import { removeBackground } from '../services/imageProcessingService';
 import { removeBackgroundWithAI, checkComfyUIHealth } from '../services/bgRemovalApiClient';
 import JSZip from 'jszip';
@@ -40,6 +40,15 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
     });
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isAIAvailable, setIsAIAvailable] = useState<boolean | null>(null);
+    const [isAiModelOpen, setIsAiModelOpen] = useState(false);
+
+    const aiModelOptions = ['General', 'Matting', 'DIS', 'HRSOD'] as const;
+    const [aiModel, setAiModel] = useState<string>(() => {
+        const saved = localStorage.getItem('bgRemovalAiModel');
+        return saved && aiModelOptions.includes(saved as typeof aiModelOptions[number])
+            ? saved
+            : 'General';
+    });
 
     // Algorithm Settings
     const [keyColor, setKeyColor] = useState('#00FF00'); // Default Green
@@ -60,6 +69,10 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
     useEffect(() => {
         localStorage.setItem('bgRemovalMode', processingMode);
     }, [processingMode]);
+
+    useEffect(() => {
+        localStorage.setItem('bgRemovalAiModel', aiModel);
+    }, [aiModel]);
 
     // Check AI availability on mount
     useEffect(() => {
@@ -237,7 +250,9 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
 
                 if (processingMode === 'ai') {
                     // Use ComfyUI AI backend
-                    const resultBase64 = await removeBackgroundWithAI(dataUrl);
+                    const resultBase64 = await removeBackgroundWithAI(dataUrl, {
+                        model: aiModel,
+                    });
                     resultUrl = `data:image/png;base64,${resultBase64}`;
                 } else {
                     // Use client-side algorithm
@@ -617,8 +632,44 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
                         </button>
                     )}
 
-                    {/* Settings Button */}
-                    {/* Settings Button */}
+                    {processingMode === 'ai' && (
+                        <div className="relative mr-2">
+                            <button
+                                type="button"
+                                onClick={() => setIsAiModelOpen((prev) => !prev)}
+                                disabled={isAIAvailable === false}
+                                className={`flex items-center gap-2 bg-white/80 backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg border transition-all ${isAIAvailable === false
+                                    ? 'opacity-50 cursor-not-allowed text-gray-400 border-gray-200/50'
+                                    : 'text-gray-700 border-gray-200/50 hover:bg-white'}`}
+                                title="AI Model"
+                            >
+                                <span className="text-[11px] font-semibold text-gray-500">Model</span>
+                                <span className="text-xs font-bold">{aiModel}</span>
+                                <ChevronDown size={14} className={`text-gray-400 transition-transform ${isAiModelOpen ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {isAiModelOpen && isAIAvailable !== false && (
+                                <div className="absolute right-0 mt-2 w-40 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 px-1 animate-in fade-in zoom-in-95 duration-150">
+                                    {aiModelOptions.map((option) => (
+                                        <button
+                                            key={option}
+                                            type="button"
+                                            onClick={() => {
+                                                setAiModel(option);
+                                                setIsAiModelOpen(false);
+                                            }}
+                                            className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${aiModel === option
+                                                ? 'bg-black text-white'
+                                                : 'text-gray-700 hover:bg-gray-50'}`}
+                                        >
+                                            {option}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Eyedropper & Color Swatch (Only for Algorithm Mode) */}
                     {processingMode === 'algorithm' && (
                         <div className="flex items-center gap-2 mr-2 bg-white/80 backdrop-blur-md rounded-full px-2 py-1.5 shadow-lg border border-gray-200/50">
