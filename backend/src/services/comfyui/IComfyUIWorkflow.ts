@@ -32,6 +32,12 @@ export interface ImageWorkflowInput {
     imageBase64: string;
     /** Optional filename hint */
     filename?: string;
+    /** Optional input node id to inject the image into */
+    inputNodeId?: string;
+    /** Optional output node id to select a specific node's images */
+    outputNodeId?: string;
+    /** Optional workflow parameters provided by the client */
+    parameter?: Record<string, unknown>;
 }
 
 /**

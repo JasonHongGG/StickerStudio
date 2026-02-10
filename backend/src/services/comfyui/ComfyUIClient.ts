@@ -172,6 +172,32 @@ export class ComfyUIClient {
     }
 
     /**
+     * Download an output image from a specific node
+     * @param historyEntry - The completed history entry
+     * @param nodeId - The node id that produced the output
+     * @param imageIndex - Which output image to download (default: 0)
+     */
+    async downloadOutputImage(
+        historyEntry: ComfyUIHistoryEntry,
+        nodeId: string,
+        imageIndex: number = 0
+    ): Promise<Buffer> {
+        const output = historyEntry.outputs[nodeId];
+        const images = output?.images;
+
+        if (!images || images.length === 0) {
+            throw new Error(`No output images found for node ${nodeId}`);
+        }
+
+        const imageInfo = images[imageIndex];
+        if (!imageInfo) {
+            throw new Error(`Output image index ${imageIndex} out of range for node ${nodeId}`);
+        }
+
+        return this.downloadImage(imageInfo);
+    }
+
+    /**
      * Check if ComfyUI server is reachable
      */
     async healthCheck(): Promise<boolean> {

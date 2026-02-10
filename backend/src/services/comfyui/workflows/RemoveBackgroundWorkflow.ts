@@ -10,7 +10,7 @@ const __dirname = dirname(__filename);
 
 /**
  * Background removal workflow using ComfyUI.
- * Uses a pre-configured workflow JSON that expects a LoadImage node at position "1".
+ * Uses a pre-configured workflow JSON that includes a LoadImage node.
  */
 export class RemoveBackgroundWorkflow implements IComfyUIWorkflow<ImageWorkflowInput, ImageWorkflowOutput> {
     readonly name = 'Remove Background';
@@ -58,7 +58,12 @@ export class RemoveBackgroundWorkflow implements IComfyUIWorkflow<ImageWorkflowI
         const uploadedFilename = await this.client.uploadImage(imageBuffer, filename);
 
         // 3. Clone workflow and inject the uploaded filename
-        const promptGraph = this.injectInputImage(uploadedFilename);
+        const inputNodeId = this.resolveInputNodeId(this.workflowTemplate, input.inputNodeId);
+        const promptGraph = this.injectInputImage(uploadedFilename, inputNodeId);
+
+        if (input.parameter) {
+            this.applyParameters(promptGraph, input.parameter);
+        }
 
         // 4. Queue the prompt
         const promptId = await this.client.queuePrompt(promptGraph);
@@ -67,7 +72,8 @@ export class RemoveBackgroundWorkflow implements IComfyUIWorkflow<ImageWorkflowI
         const historyEntry = await this.client.waitForCompletion(promptId);
 
         // 6. Download the result image
-        const resultBuffer = await this.client.downloadFirstOutputImage(historyEntry);
+        const outputNodeId = this.resolveOutputNodeId(promptGraph, input.outputNodeId);
+        const resultBuffer = await this.client.downloadOutputImage(historyEntry, outputNodeId);
 
         // 7. Convert to base64
         const resultBase64 = resultBuffer.toString('base64');
@@ -81,27 +87,109 @@ export class RemoveBackgroundWorkflow implements IComfyUIWorkflow<ImageWorkflowI
     /**
      * Inject the uploaded image filename into the workflow template
      */
-    private injectInputImage(filename: string): Record<string, any> {
+    private injectInputImage(filename: string, nodeId: string): Record<string, any> {
         // Deep clone the template
         const graph = JSON.parse(JSON.stringify(this.workflowTemplate));
+        const nodeObj = graph[nodeId] as any;
+        if (!nodeObj?.inputs) {
+            throw new Error(`Input node ${nodeId} has no inputs`);
+        }
 
-        // Find the LoadImage node by class_type and update its image field
-        let found = false;
+        nodeObj.inputs.image = filename;
+        console.log(`[ComfyUI] Injected image "${filename}" into LoadImage node "${nodeId}"`);
+
+        return graph;
+    }
+
+    /**
+     * Resolve which node to inject the input image into
+     */
+    private resolveInputNodeId(graph: Record<string, any>, preferredNodeId?: string): string {
+        if (preferredNodeId && preferredNodeId.trim().length > 0) {
+            return preferredNodeId.trim();
+        }
+
         for (const [nodeId, node] of Object.entries(graph)) {
             const nodeObj = node as any;
-            if (nodeObj.class_type === 'LoadImage' && nodeObj.inputs) {
-                nodeObj.inputs.image = filename;
-                found = true;
-                console.log(`[ComfyUI] Injected image "${filename}" into LoadImage node "${nodeId}"`);
-                break;
+            if (nodeObj.class_type === 'LoadImage') {
+                return nodeId;
             }
         }
 
-        if (!found) {
-            throw new Error('No LoadImage node found in workflow template');
+        throw new Error('No LoadImage node found in workflow template');
+    }
+
+    /**
+     * Resolve which node to read outputs from
+     */
+    private resolveOutputNodeId(graph: Record<string, any>, preferredNodeId?: string): string {
+        if (preferredNodeId && preferredNodeId.trim().length > 0) {
+            return preferredNodeId.trim();
         }
 
-        return graph;
+        for (const [nodeId, node] of Object.entries(graph)) {
+            const nodeObj = node as any;
+            if (nodeObj.class_type === 'PreviewImage') {
+                return nodeId;
+            }
+        }
+
+        throw new Error('No PreviewImage node found in workflow template');
+    }
+
+    /**
+     * Apply workflow-specific parameters to the prompt graph
+     */
+    private applyParameters(graph: Record<string, any>, parameter: Record<string, unknown>): void {
+        if (typeof parameter.model === 'string' && parameter.model.trim().length > 0) {
+            this.setNodeValue(graph, '1', 'inputs.model_name', parameter.model.trim());
+        }
+    }
+
+    /**
+     * Set a value on a node using a dot-separated path
+     */
+    private setNodeValue(
+        graph: Record<string, any>,
+        nodeId: string,
+        path: string,
+        value: unknown
+    ): void {
+        const node = graph[nodeId];
+        if (!node) {
+            throw new Error(`Node ${nodeId} not found in workflow template`);
+        }
+
+        const segments = path.split('.').filter(Boolean);
+        if (segments.length === 0) {
+            throw new Error('Path cannot be empty');
+        }
+
+        let current: any = node;
+        for (let index = 0; index < segments.length - 1; index += 1) {
+            const key = this.parsePathSegment(segments[index]);
+            if (current[key] === undefined) {
+                throw new Error(`Path not found on node ${nodeId}: ${path}`);
+            }
+            current = current[key];
+        }
+
+        const lastKey = this.parsePathSegment(segments[segments.length - 1]);
+        if (current[lastKey] === undefined) {
+            throw new Error(`Path not found on node ${nodeId}: ${path}`);
+        }
+
+        current[lastKey] = value;
+    }
+
+    /**
+     * Parse a path segment into object key or array index
+     */
+    private parsePathSegment(segment: string): string | number {
+        if (/^\d+$/.test(segment)) {
+            return Number(segment);
+        }
+        return segment;
     }
 
     /**
