@@ -186,59 +186,6 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
                 }
             };
 
-            // --- Neutral Key Specific Steps ---
-            const applyNeutralEnclosedCleanup = async () => {
-                const lumaAt = (r: number, g: number, b: number) => 0.299 * r + 0.587 * g + 0.114 * b;
-                const edgeThreshold = Math.max(4, 12 - (userSimilarity * 0.05)); // higher similarity -> more aggressive
-                const neighborNearKeyThreshold = 6; // require majority of neighbors to be near key
-
-                for (let y = 1; y < h - 1; y++) {
-                    if (y % 40 === 0) await yieldToMain();
-                    for (let x = 1; x < w - 1; x++) {
-                        const idx = y * w + x;
-                        if (data[idx * 4 + 3] === 0) continue; // already transparent
-
-                        if (!isMatch(idx, true)) continue;
-
-                        if (edgeMask[idx]) continue; // protect edges/eyes/linework
-
-                        const i4 = idx * 4;
-                        const cL = lumaAt(data[i4], data[i4 + 1], data[i4 + 2]);
-
-                        const lL = lumaAt(data[i4 - 4], data[i4 - 3], data[i4 - 2]);
-                        const rL = lumaAt(data[i4 + 4], data[i4 + 5], data[i4 + 6]);
-                        const tL = lumaAt(data[i4 - w * 4], data[i4 - w * 4 + 1], data[i4 - w * 4 + 2]);
-                        const bL = lumaAt(data[i4 + w * 4], data[i4 + w * 4 + 1], data[i4 + w * 4 + 2]);
-
-                        const edgeStrength = Math.max(
-                            Math.abs(cL - lL),
-                            Math.abs(cL - rL),
-                            Math.abs(cL - tL),
-                            Math.abs(cL - bL)
-                        );
-
-                        const nearKey = (i: number) =>
-                            Math.abs(data[i * 4] - keyRgb.r) +
-                            Math.abs(data[i * 4 + 1] - keyRgb.g) +
-                            Math.abs(data[i * 4 + 2] - keyRgb.b) < 80;
-
-                        let nearCount = 0;
-                        if (nearKey(idx - w - 1)) nearCount++;
-                        if (nearKey(idx - w)) nearCount++;
-                        if (nearKey(idx - w + 1)) nearCount++;
-                        if (nearKey(idx - 1)) nearCount++;
-                        if (nearKey(idx + 1)) nearCount++;
-                        if (nearKey(idx + w - 1)) nearCount++;
-                        if (nearKey(idx + w)) nearCount++;
-                        if (nearKey(idx + w + 1)) nearCount++;
-
-                        if (edgeStrength < edgeThreshold && nearCount >= neighborNearKeyThreshold) {
-                            data[i4 + 3] = 0;
-                        }
-                    }
-                }
-            };
-
             await buildEdgeMask();
 
             // Helper: Check Pixel
@@ -318,11 +265,7 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
                 }
             }
 
-            // --- 2. Enclosed Background Cleanup (Neutral Keys) ---
-            // For black/gray/white keys, remove flat key-colored regions even if not connected to border
-            if (keyIsNeutral) await applyNeutralEnclosedCleanup();
-
-            // --- 3. Generic Spill Suppression ---
+            // --- 2. Generic Spill Suppression ---
             // If edge pixel matches Hue somewhat, desaturate it.
             for (let i = 0; i < len; i++) {
                 if (i % (w * 20) === 0) await yieldToMain();
@@ -356,7 +299,7 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
                 }
             }
 
-            // --- 4. Edge Shrink (All Keys) ---
+            // --- 3. Edge Shrink (All Keys) ---
             // Remove a thin outer rim regardless of color for a fully clean cutout
             {
                 for (let pass = 0; pass < edgeShrinkIterations; pass++) {
@@ -383,7 +326,7 @@ export async function removeBackground(imageSrc: string, options: BackgroundRemo
                 }
             }
 
-            // --- 5. Edge Smoothing (All Keys) ---
+            // --- 4. Edge Smoothing (All Keys) ---
             // Anti-alias edge lines using coverage + sharpening (no color blur)
             {
                 const smoothLow = 0.35;
