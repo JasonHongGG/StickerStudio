@@ -26,6 +26,7 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
     // Slider state: 0 = Full Result, 100 = Full Original. 
     // "Left side Original" means Original is visible from 0 to SliderPos.
     const [sliderPosition, setSliderPosition] = useState(50);
+    const [sliderPositions, setSliderPositions] = useState<Record<string, number>>({});
     const isDraggingSlider = useRef(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -69,11 +70,12 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
     const selectedImage = images.find(img => img.id === selectedImageId);
     useEffect(() => {
         if (selectedImage?.status === 'success') {
-            setSliderPosition(50); // Default to middle for comparison
+            const saved = selectedImageId ? sliderPositions[selectedImageId] : undefined;
+            setSliderPosition(saved ?? 50); // Default to middle for new images
         } else {
             setSliderPosition(100); // Show full original if not ready
         }
-    }, [selectedImageId, selectedImage?.status]);
+    }, [selectedImageId, selectedImage?.status, sliderPositions]);
 
 
     // --- Handlers ---
@@ -84,6 +86,9 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
         const x = clientX - rect.left;
         const percent = Math.min(Math.max((x / rect.width) * 100, 0), 100);
         setSliderPosition(percent);
+        if (selectedImageId) {
+            setSliderPositions(prev => ({ ...prev, [selectedImageId]: percent }));
+        }
     };
 
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -191,6 +196,10 @@ export const BackgroundRemovalTool: React.FC<BackgroundRemovalToolProps> = () =>
                 resultUrl: undefined
             };
         }));
+        setSliderPositions(prev => {
+            const { [id]: _, ...rest } = prev;
+            return rest;
+        });
     };
 
     const handleClearAll = () => {
