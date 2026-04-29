@@ -36,6 +36,7 @@ export interface ComfyUIHistoryEntry {
     status?: {
         completed: boolean;
         status_str?: string;
+        messages?: Array<[string, Record<string, unknown>]>;
     };
 }
 
@@ -131,7 +132,38 @@ export class ComfyUIClient {
                 if (entry && entry.outputs && Object.keys(entry.outputs).length > 0) {
                     return entry;
                 }
+
+                if (entry) {
+                    const executionError = entry.status?.messages?.find(
+                        ([type]) => type === 'execution_error'
+                    )?.[1];
+
+                    if (entry.status?.status_str === 'error' || executionError) {
+                        const nodeId = typeof executionError?.node_id === 'string'
+                            ? executionError.node_id
+                            : undefined;
+                        const nodeType = typeof executionError?.node_type === 'string'
+                            ? executionError.node_type
+                            : undefined;
+                        const exceptionMessage = typeof executionError?.exception_message === 'string'
+                            ? executionError.exception_message
+                            : undefined;
+                        const nodeDetails = nodeId || nodeType
+                            ? ` at node ${nodeId || 'unknown'}${nodeType ? ` (${nodeType})` : ''}`
+                            : '';
+
+                        throw new Error(
+                            `Prompt ${promptId} failed${nodeDetails}: ${
+                                exceptionMessage || 'Unknown ComfyUI execution error'
+                            }`
+                        );
+                    }
+                }
             } catch (error) {
+                if (error instanceof Error && error.message.includes(`Prompt ${promptId} failed`)) {
+                    throw error;
+                }
+
                 // History not ready yet, continue polling
             }
 
